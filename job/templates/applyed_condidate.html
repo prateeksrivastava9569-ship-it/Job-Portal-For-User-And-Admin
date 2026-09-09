@@ -1,0 +1,43 @@
+{% include 'recuiter_navigation.html' %}
+
+<style>
+tr{text-align:center}
+</style>
+
+<marquee style="font-family: 'Monotype Corsiva'; font-size:25px; color:darkcyan; background-color:black; font-weight:bold; margin-top:1%">
+        All Job List
+</marquee>
+<hr>
+
+<div class="container-fluid">
+<table class="table table-hover " id="example">
+    <thead>
+    <tr style="background-color: lightgreen; color : black">
+        <th>S. No.</th>
+        <th>Job Title</th>
+        <th>Creation Date</th>
+        <th>Action</th>
+    </tr>
+    </thead>
+    <tbody style="background-color:yellow; color: black">
+    {% for i in data %}
+    <tr>
+        <td>{{forloop.counter}}</td>
+        <td>{{i.title}}</td>
+        <td>{{i.creationdate}}</td>
+
+        <td>
+            {% if i.id in jobs_with_apps %}
+                <a href="{% url 'applied_condidate_list' %}" class="btn btn-primary btn-sm">View Applied Candidate</a>
+            {% else %}
+                <button class="btn btn-secondary btn-sm" disabled>No Applicants</button>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+{% include 'footer.html' %}
+

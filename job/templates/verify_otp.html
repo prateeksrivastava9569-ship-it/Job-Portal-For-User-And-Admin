@@ -1,0 +1,62 @@
+{% load static %}
+
+{% block body %}
+
+{% include 'navigation.html' %}
+
+<marquee style="font-family: 'Monotype Corsiva'; font-size:25px; color:darkcyan; background-color:black; font-weight:bold; margin-top:1%">
+    Verify OTP
+</marquee>
+<hr>
+
+<div class="container mt-5">
+    <form method="post" class="col-md-5 mx-auto border p-4 rounded" data-reset-on-back="true">
+        {% csrf_token %}
+        <label><b>Enter 6-digit OTP:</b></label>
+        <input type="text" class="form-control" name="otp" maxlength="6" placeholder="Enter OTP" required>
+
+        {% if error == 'invalid' %}
+        <div class="alert alert-danger mt-3">OTP is incorrect. Please try again.</div>
+        {% elif error == 'expired' %}
+        <div class="alert alert-warning mt-3">OTP expired. Please request a new one.</div>
+        {% elif channel == 'mobile' %}
+        <div class="alert alert-info mt-3">OTP has been sent to your registered mobile number.</div>
+        {% else %}
+        <div class="alert alert-info mt-3">OTP has been sent to your registered email address.</div>
+        {% endif %}
+
+        {% if channel == 'mobile' and demo_otp %}
+        <div class="alert alert-warning mt-3">
+            Demo SMS OTP: <strong>{{ demo_otp }}</strong>
+        </div>
+        {% endif %}
+
+        <div class="mt-3 mb-2 text-center">
+            <span class="badge badge-warning text-dark" id="otpTimer">OTP valid for 01:00</span>
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-3" style="color:darkcyan; background-color:black; height:50px; font-size:22px">Verify OTP</button>
+        <a href="{% url 'forgot_password' %}?resend=1" class="btn btn-secondary mt-3 ml-2" style="height:50px; font-size:22px">Resend OTP</a>
+    </form>
+</div>
+
+<script>
+    var totalSeconds = {{ seconds_left|default:60 }};
+    var timerEl = document.getElementById('otpTimer');
+    function updateTimer() {
+        var minutes = Math.floor(totalSeconds / 60);
+        var seconds = totalSeconds % 60;
+        timerEl.textContent = 'OTP valid for ' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+        if (totalSeconds <= 0) {
+            timerEl.className = 'badge badge-danger text-white';
+            timerEl.textContent = 'OTP expired';
+            return;
+        }
+        totalSeconds -= 1;
+    }
+    updateTimer();
+    setInterval(updateTimer, 1000);
+</script>
+
+{% include 'footer.html' %}
+{% endblock %}

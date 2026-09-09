@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Job Portal Logo">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#0b1f5b"/>
+      <stop offset="100%" stop-color="#1f67d8"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" x2="1">
+      <stop offset="0%" stop-color="#ffd166"/>
+      <stop offset="100%" stop-color="#ff9f1c"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="40" fill="url(#bg)"/>
+  <circle cx="120" cy="120" r="82" fill="none" stroke="url(#ring)" stroke-width="10"/>
+  <circle cx="120" cy="120" r="58" fill="#ffffff" opacity="0.12"/>
+  <g fill="#ffffff" font-family="Arial, sans-serif" font-weight="700">
+    <text x="120" y="110" text-anchor="middle" font-size="46">JP</text>
+    <text x="120" y="150" text-anchor="middle" font-size="18" letter-spacing="2">JOB</text>
+    <text x="120" y="176" text-anchor="middle" font-size="16" letter-spacing="3">PORTAL</text>
+  </g>
+  <path d="M52 186c20-20 42-30 68-30s48 10 68 30" fill="none" stroke="#ffd166" stroke-width="8" stroke-linecap="round"/>
+</svg>

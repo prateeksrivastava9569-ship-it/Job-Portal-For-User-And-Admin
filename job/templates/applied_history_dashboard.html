@@ -1,0 +1,44 @@
+{% include 'recuiter_navigation.html' %}
+
+<div class="container mt-4">
+    <h3>Application History Dashboard</h3>
+    <p>Total records: {{ total }}</p>
+
+    <div class="mb-3">
+        <a href="?export=csv" class="btn btn-sm btn-outline-primary">Export CSV</a>
+    </div>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Application ID</th>
+                <th>Job ID</th>
+                <th>Previous</th>
+                <th>New</th>
+                <th>Changed By</th>
+                <th>Changed At</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in entries %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ h.application.id }}</td>
+                <td>{{ h.application.num }}</td>
+                <td>{{ h.previous_status|default:'-' }}</td>
+                <td>{{ h.new_status|default:'-' }}</td>
+                <td>{% if h.changed_by %}{{ h.changed_by.get_full_name }}{% else %}-{% endif %}</td>
+                <td>{% if h.changed_at %}{{ h.changed_at|date:"d M Y H:i" }}{% else %}-{% endif %}</td>
+                <td>{{ h.note|default:'-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="?page={{ page|add:-1 }}" class="btn btn-sm btn-light">Previous</a>
+    <a href="?page={{ page|add:1 }}" class="btn btn-sm btn-light">Next</a>
+</div>
+
+{% include 'footer.html' %}

@@ -1,0 +1,555 @@
+
+
+
+
+<html>
+<head>
+    
+    <title>Job Portal</title>
+ <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+body {
+    background-color: #f5f7fb;
+}
+.nav-link {
+    color: white !important;
+    margin-right: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px !important;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.nav-link i,
+.nav-link .fa,
+.navbar-brand,
+.navbar-brand:hover {
+    color: white !important;
+}
+
+.nav-link:hover {
+    color: #fff !important;
+    font-weight: 600;
+    background: rgba(255,255,255,0.18);
+    border-radius: 10px;
+}
+
+.navbar-brand:hover {
+    color: #fff !important;
+}
+
+.back-arrow-btn {
+    position: fixed;
+    left: 18px;
+    top: 18px;
+    z-index: 9999;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0d6efd, #0056b3);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    text-decoration: none;
+}
+
+.back-arrow-btn:hover {
+    color: white;
+    text-decoration: none;
+    transform: scale(1.05);
+}
+
+.main-header {
+    background: linear-gradient(180deg, #f9fbff 0%, #edf4ff 100%);
+    padding: 18px 0 12px;
+    border-bottom: 1px solid #e4ebf8;
+}
+
+.site-title {
+    font-weight: 800;
+    font-size: 30px;
+    letter-spacing: 0.5px;
+}
+
+.site-title .red { color: #e53935; }
+.site-title .green { color: #198754; }
+
+.top-social {
+    color: #0d6efd;
+    font-size: 24px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.navbar-custom {
+    background: linear-gradient(90deg, #0d6efd, #1d4ed8);
+    box-shadow: 0 8px 20px rgba(13,110,253,0.12);
+}
+</style>
+<script>
+    function goBackSafe() {
+        var currentPath = window.location.pathname || '/';
+        var homePaths = ['/', '/index', '/home'];
+        var isHomePage = homePaths.indexOf(currentPath) !== -1 || currentPath.endsWith('/index') || currentPath.endsWith('/');
+
+        if (isHomePage) {
+            return;
+        }
+
+        var referrer = document.referrer || '';
+        var sameSite = referrer && referrer.indexOf(window.location.origin) === 0;
+        var referrerPath = '';
+        try {
+            referrerPath = sameSite ? new URL(referrer).pathname : '';
+        } catch (e) {
+            referrerPath = '';
+        }
+        var blocked = ['/verify_otp', '/forgot_password', '/reset_password'].indexOf(referrerPath) !== -1;
+        if (sameSite && !blocked && history.length > 1) {
+            history.back();
+            return;
+        }
+        window.location.href = "/";
+    }
+
+    document.addEventListener('pageshow', function () {
+        var forms = document.querySelectorAll('form');
+        forms.forEach(function (form) {
+            if (form && form.dataset.resetOnBack === 'true') {
+                form.reset();
+            }
+        });
+        var inputs = document.querySelectorAll('input, textarea, select');
+        inputs.forEach(function (input) {
+            if (input && input.type !== 'hidden' && input.dataset.clearOnBack === 'true') {
+                input.value = '';
+            }
+        });
+    });
+</script>
+</head>
+<body>
+<a href="javascript:void(0)" class="back-arrow-btn" onclick="goBackSafe(); return false;" title="Back">
+    <i class="fa fa-arrow-left"></i>
+</a>
+
+<div class="container main-header">
+    <div class="row align-items-center">
+        <div class="col-sm-3" style="display:flex; align-items:center; justify-content:flex-start; gap:12px;">
+            <img src="/static/images/college_logo.png" width="120px" height="120px" style="object-fit:contain; background:transparent; border-radius:50%; box-shadow:0 0 15px rgba(0,0,0,0.08);">
+            <img src="/static/images/job_portal_logo.png" width="120px" height="120px" style="object-fit:contain; border-radius:18px; box-shadow:0 0 12px rgba(0,0,0,0.12); background:transparent;">
+        </div>
+
+        <div class="col-sm-6 text-center">
+            <span class="site-title">
+                <span class="red">Online Job</span>
+                <span class="green">Portal System</span>
+            </span>
+        </div>
+
+        <div class="col-sm-3 text-center">
+            <div class="top-social">
+                <span><i class="fa fa-twitter"></i></span>
+                <span><i class="fa fa-linkedin"></i></span>
+                <span><i class="fa fa-instagram"></i></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<nav class="navbar navbar-expand-sm navbar-custom">
+    <a class="navbar-brand text-white pl-5 font-weight-bold" style="font-family:'Mv Boli'; font-size:30px">Job Portal</a>
+
+    <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/" style="margin-left:280px"><i class="fa fa-home mr-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/latest_job"><i class="fa fa-users mr-1"></i>Latest Jobs</a></li>
+        <li class="nav-item"><a class="nav-link" href="/user_login"><i class="fa fa-user-plus mr-1"></i>User Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="/recuiter_login"><i class="fa fa-sign-language mr-1"></i>Recruiter Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="/admin_login"><i class="fa fa-sign-in mr-1"></i>Admin Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="/contact_us"><i class="fa fa-phone mr-1"></i>Contact Us</a></li>
+    </ul>
+</nav>
+
+</body>
+</html>
+<script>
+    function togglePassword(fieldId, iconId) {
+        var field = document.getElementById(fieldId);
+        var icon = document.getElementById(iconId);
+        if (!field || !icon) return;
+        if (field.type === 'password') {
+            field.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            field.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+</script>
+
+<style>
+    .field-error {
+       display: none;
+       color: #d93025;
+       font-size: 12px;
+       margin-top: 5px;
+    }
+    .field-error.show {
+       display: block;
+    }
+    .is-invalid {
+       border-color: #d93025 !important;
+       box-shadow: 0 0 0 0.2rem rgba(217, 48, 37, 0.08);
+    }
+</style>
+<script>
+    function showFieldError(field, message) {
+       if (!field) return;
+       field.classList.add('is-invalid');
+       var target = document.getElementById(field.dataset.errorTarget);
+       if (target) {
+           target.textContent = message;
+           target.classList.add('show');
+       }
+    }
+
+    function clearFieldError(field) {
+       if (!field) return;
+       field.classList.remove('is-invalid');
+       var target = document.getElementById(field.dataset.errorTarget);
+       if (target) {
+           target.textContent = '';
+           target.classList.remove('show');
+       }
+    }
+
+    function validateRequiredField(field) {
+       if (!field) return true;
+       if (field.type === 'radio') {
+           var checked = document.querySelectorAll('input[name="' + field.name + '"]:checked').length > 0;
+           if (!checked) {
+               showFieldError(field, 'This field is required.');
+               return false;
+           }
+           clearFieldError(field);
+           return true;
+       }
+
+       var value = (field.value || '').trim();
+       if (field.name === 'interest') {
+           var interestChecked = document.querySelectorAll('input[name="interest"]:checked').length > 0;
+           if (!interestChecked) {
+               showFieldError(field, 'This field is required.');
+               return false;
+           }
+           clearFieldError(field);
+           return true;
+       }
+
+       if (!value) {
+           showFieldError(field, 'This field is required.');
+           return false;
+       }
+
+       if (field.name === 'contact' && !/^\d{10}$/.test(value)) {
+           showFieldError(field, 'Please enter a valid 10-digit mobile number.');
+           return false;
+       }
+
+       if (field.name === 'email' && !/^[^\s@]+@gmail\.com$/i.test(value)) {
+           showFieldError(field, 'Please use a valid Gmail address ending with @gmail.com.');
+           return false;
+       }
+
+       if (field.name === 'pwd' && value.length < 6) {
+           showFieldError(field, 'Password must be at least 6 characters.');
+           return false;
+       }
+
+       clearFieldError(field);
+       return true;
+    }
+
+    function checkpass() {
+       var form = document.forms['signup'];
+       if (!form) return true;
+       var ok = true;
+       var requiredFields = form.querySelectorAll('[required], [data-required]');
+       requiredFields.forEach(function(field) {
+           if (field.name === 'interest') {
+               if (!document.querySelectorAll('input[name="interest"]:checked').length) {
+                   ok = false;
+                   showFieldError(field, 'This field is required.');
+                   return;
+               }
+           }
+           if (!validateRequiredField(field)) ok = false;
+       });
+       if (form.pwd && form.cpwd && form.pwd.value && form.cpwd.value && form.pwd.value !== form.cpwd.value) {
+           showFieldError(form.cpwd, 'Passwords do not match.');
+           ok = false;
+       }
+       if (!ok) {
+           var firstError = form.querySelector('.is-invalid');
+           if (firstError) firstError.focus();
+           return false;
+       }
+       return true;
+    }
+
+    function validateInterestSelection() {
+      var selected = document.querySelectorAll('input[name="interest"]:checked').length;
+      if (selected === 0) {
+          var target = document.getElementById('interestError');
+          if (target) {
+              target.textContent = 'This field is required.';
+              target.classList.add('show');
+          }
+          return false;
+      }
+      var target = document.getElementById('interestError');
+      if (target) {
+          target.textContent = '';
+          target.classList.remove('show');
+      }
+      return true;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+       var form = document.forms['signup'];
+       if (!form) return;
+       form.querySelectorAll('input, select').forEach(function(field) {
+           if (!field.dataset.errorTarget) return;
+           field.addEventListener('input', function() { validateRequiredField(field); });
+           field.addEventListener('blur', function() { validateRequiredField(field); });
+       });
+       form.querySelectorAll('input[name="interest"]').forEach(function(field) {
+           field.addEventListener('change', function() { validateInterestSelection(); });
+       });
+    });
+</script>
+
+<marquee style="font-family: 'Monotype Corsiva'; font-size:25px; color:darkcyan; background-color:black; font-weight:bold; margin-top:1%">
+    User Signup
+</marquee>
+<hr>
+<form class="container mt-5" onsubmit="return checkpass() && validateInterestSelection();" id="signup" name="signup" method="post" enctype="multipart/form-data" novalidate>
+    <input type="hidden" name="csrfmiddlewaretoken" value="4G6k9F4U2CYZpZPj3Fky01o4GUIn7t6J2NqEYBW6GmJHOkOrVFWem6qzdY0MYfNL">
+
+    <div class="form-row">
+        <div class="form-group col-md-6" >
+            <label>First Name</label>
+            <input type="text" class="form-control" name="fname" value="" placeholder="Enter First Name" required data-error-target="fnameError">
+            <div class="field-error" id="fnameError"></div>
+        </div>
+
+        <div class="form-group col-md-6" >
+            <label>Last Name</label>
+            <input type="text" class="form-control" name="lname" value="" placeholder="Enter Last Name" data-error-target="lnameError">
+            <div class="field-error" id="lnameError"></div>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-12" >
+            <label>Contact Number:</label>
+            <input type="tel" class="form-control" name="contact" value="" placeholder="Enter 10-digit mobile number" pattern="[0-9]{10}" inputmode="numeric" minlength="10" maxlength="10" required data-error-target="contactError">
+            <div class="field-error" id="contactError"></div>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-12" >
+            <label>Email ID:</label>
+            <input type="email" class="form-control" name="email" value="" placeholder="Enter Gmail Address" pattern=".+@gmail\.com" title="Please enter a valid Gmail address" required data-error-target="emailError">
+            <div class="field-error" id="emailError"></div>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-6" >
+            <label>Password:</label>
+            <div class="input-group">
+                <input type="password" id="userSignupPwd" class="form-control" name="pwd" value="" placeholder="Enter Password" required data-error-target="pwdError">
+                <div class="input-group-append">
+                    <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('userSignupPwd', 'userSignupPwdEye')">
+                        <i id="userSignupPwdEye" class="fa fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="field-error" id="pwdError"></div>
+        </div>
+
+        <div class="form-group col-md-6" >
+            <label>Confirm Password:</label>
+            <div class="input-group">
+                <input type="password" id="userSignupConfirmPwd" class="form-control" name="cpwd" value="" placeholder="Confirm Password" required data-error-target="cpwdError">
+                <div class="input-group-append">
+                    <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('userSignupConfirmPwd', 'userSignupConfirmPwdEye')">
+                        <i id="userSignupConfirmPwdEye" class="fa fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="field-error" id="cpwdError"></div>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-6" >
+            <label>Gender</label>
+            <div style="border:1px solid lightgrey ; padding:6px ; border-radius:6px">
+            <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="customRadioInLine1" name="gender" class="custom-control-input" value="Male"  data-error-target="genderError">
+                <label class="custom-control-label" for="customRadioInLine1">Male</label>
+            </div>
+            <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="customRadioInLine2" name="gender" class="custom-control-input" value="Female"  data-error-target="genderError">
+                <label class="custom-control-label" for="customRadioInLine2">Female</label>
+            </div>
+                </div>
+            <div class="field-error" id="genderError"></div>
+        </div>
+
+        <div class="form-group col-md-6" >
+            <label>Image</label>
+            <input type="file" class="form-control" name="image" data-error-target="imageError">
+        <div class="field-error" id="imageError"></div>
+        
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group col-md-12">
+        <label>Upload Resume (Optional)</label>
+        <input type="file" class="form-control" name="resume" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <small class="text-muted">Upload your resume in PDF or DOC/DOCX format.</small>
+        
+    </div>
+        </div>
+    </div>
+
+<div class="form-row">
+    <div class="form-group col-md-6">
+        <label>Highest Qualification</label>
+        <select class="form-control" name="qualification" required data-error-target="qualificationError">
+            <option value="">Select qualification</option>
+            <option value="B.Tech Computer Science" >B.Tech Computer Science</option>
+            <option value="B.Tech Information Technology" >B.Tech Information Technology</option>
+            <option value="B.Tech Electronics & Communication" >B.Tech Electronics & Communication</option>
+            <option value="B.Tech Mechanical" >B.Tech Mechanical</option>
+            <option value="B.Tech Civil" >B.Tech Civil</option>
+            <option value="BCA" >BCA</option>
+            <option value="MCA" >MCA</option>
+            <option value="Diploma in Engineering" >Diploma in Engineering</option>
+            <option value="B.Sc Computer Science" >B.Sc Computer Science</option>
+            <option value="B.Sc IT" >B.Sc IT</option>
+            <option value="M.Tech" >M.Tech</option>
+            <option value="Other" >Other</option>
+        </select>
+        <div class="field-error" id="qualificationError"></div>
+    </div>
+
+    <div class="form-group col-md-6">
+        <label>Experience (Years)</label>
+        <input type="number" class="form-control" name="experience" min="0" value="0" required data-error-target="experienceError">
+        <div class="field-error" id="experienceError"></div>
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group col-md-12">
+        <label>Select Your Interests</label>
+        <div class="border rounded p-3" style="background:#f8f9fa;">
+            <div class="row">
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Web Development" > Web Development</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Software Development" > Software Development</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Data Science" > Data Science</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Artificial Intelligence" > Artificial Intelligence</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Machine Learning" > Machine Learning</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Cyber Security" > Cyber Security</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Cloud Computing" > Cloud Computing</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Python" > Python</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Java" > Java</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Android Development" > Android Development</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="UI/UX Design" > UI/UX Design</label></div>
+                <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Testing" > Testing</label></div>
+            </div>
+            <small class="text-muted">Choose at least one interest.</small>
+            <div class="field-error" id="interestError"></div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<input type="submit" value="Submit" class="btn btn-primary my-3" style="width:200px">
+</form>
+
+
+
+<div class="mt-3" style="background: linear-gradient(180deg, #111827 0%, #0b1220 100%); width:100%; min-height:290px; color:white; padding: 30px 0;">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4 mt-3">
+                <h3 class="text-white mb-3">Contact Information</h3>
+                <p style="color:#f3f4f6; font-size: 18px"><i class="fa fa-map-marker text-danger mr-2"></i> SRMCM, Lucknow</p>
+                <p style="color:#f3f4f6; font-size: 18px"><i class="fa fa-envelope text-danger mr-2"></i> jobportal@usertech.in</p>
+                <p style="color:#f3f4f6; font-size: 18px"><i class="fa fa-globe text-danger mr-2"></i> www.jobportaluser.in</p>
+            </div>
+
+            <div class="col-md-4 mt-3">
+                <h3 class="text-white mb-3">Online Placement</h3>
+                <p style="color:#dbeafe; font-size:16px; line-height:1.8;">Our platform connects students with career opportunities through skill-based matching, verified job listings, and a streamlined application process for real opportunities.</p>
+            </div>
+
+            <div class="col-md-4 mt-3">
+                <h3 class="text-white mb-3">Newsletter</h3>
+                <p style="color:#dbeafe; font-size:16px;">Get updates on new job openings and placement alerts.</p>
+                <form method="post" class="form-inline">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="4G6k9F4U2CYZpZPj3Fky01o4GUIn7t6J2NqEYBW6GmJHOkOrVFWem6qzdY0MYfNL">
+                    <input type="email" name="emailid" placeholder="Email Id" required class="form-control mr-2" style="min-width: 220px;">
+                    <input type="submit" value="Send" class="btn btn-primary">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<script>
+    alert("Signup Successfull")
+    window.location = ('/user_login')
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

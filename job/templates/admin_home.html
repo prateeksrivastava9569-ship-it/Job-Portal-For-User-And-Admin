@@ -1,0 +1,30 @@
+{% load static %}
+
+{% block body %}
+
+{% include 'admin_navigation.html' %}
+
+<style>
+    .main{
+    border:2px solid blue;
+    height:450px;
+    background-image:url({% static 'images/g.jpg' %});
+    background-size:100% 100%;
+    animation: demo 20s infinite;
+    }
+    @keyframes demo{
+    20%{background-image:url({% static 'images/a.jpg' %});}
+    40%{background-image:url({% static 'images/b.jpg' %});}
+    60%{background-image:url({% static 'images/c.jpg' %});}
+    80%{background-image:url({% static 'images/e.jpg' %});}
+    100%{background-image:url({% static 'images/d.jpg' %});}
+    }
+</style>
+
+<div class="container-fluid main">
+
+</div>
+
+{% endblock %}
+
+{% include 'footer.html' %}

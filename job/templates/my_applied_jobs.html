@@ -1,0 +1,94 @@
+{% load static %}
+
+{% block body %}
+
+{% include 'user_navigation.html' %}
+
+<marquee style="font-family: 'Monotype Corsiva'; font-size:25px; color:darkcyan; background-color:black; font-weight:bold; margin-top:1%">
+    My Applied Jobs
+</marquee>
+<hr>
+
+<div class="container my-4">
+    {% if data %}
+    <table class="table table-hover" id="example">
+        <thead>
+            <tr style="background-color: lightgreen; color: black">
+                <th>S. No.</th>
+                <th>Job Title</th>
+                <th>Location</th>
+                <th>Experience</th>
+                <th>Qualification</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody style="background-color:#fff8cc; color:black">
+            {% for item in data %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{% if item.job %}{{ item.job.title }}{% else %}Job Removed{% endif %}</td>
+                <td>{% if item.job %}{{ item.job.location }}{% else %}N/A{% endif %}</td>
+                <td>{{ item.application.experience }} Year</td>
+                <td>{{ item.application.qualification }}</td>
+                <td>
+                    {% if item.application.status %}
+                        {% if item.application.status == 'Pending' %}
+                            <span class="badge badge-warning">Pending</span>
+                        {% elif item.application.status == 'Accepted' %}
+                            <span class="badge badge-success">Accepted</span>
+                        {% elif item.application.status == 'Rejected' %}
+                            <span class="badge badge-danger">Rejected</span>
+                        {% elif item.application.status == 'Shortlisted' %}
+                            <span class="badge badge-primary">Shortlisted</span>
+                        {% else %}
+                            <span class="badge badge-secondary">{{ item.application.status }}</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge badge-secondary">Unknown</span>
+                    {% endif %}
+
+                    {% if item.latest_recruiter_note %}
+                        <div class="mt-3 p-3 border rounded bg-light shadow-sm" style="border-left:4px solid #0d6efd !important; background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);">
+                            <div class="small text-uppercase text-muted mb-2" style="letter-spacing:0.08em; font-weight:700; color:#0d6efd;">Recruiter Message</div>
+                            <div class="text-dark mb-2" style="white-space:pre-line; font-size:0.98rem; line-height:1.6;">{{ item.latest_recruiter_note }}</div>
+                            {% if item.latest_recruiter_name %}
+                                <div class="small text-muted mt-2 d-flex align-items-center">
+                                    <span class="mr-2">●</span>
+                                    <span>From {{ item.latest_recruiter_name }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.job %}
+                    <a href="{% url 'full_job_detail' item.job.id %}" class="btn btn-primary btn-sm">View Job</a>
+                    {% else %}
+                    <span class="badge badge-secondary">Unavailable</span>
+                    {% endif %}
+                    {% if item.application.status == 'Accepted' %}
+                        <br><br>
+                        <a href="{% url 'download_joining_letter' item.application.id %}" class="btn btn-outline-success btn-sm">Download Interview Invitation (PDF)</a>
+                    {% endif %}
+                    {% if item.application.resume %}
+                        <br><br>
+                        <a href="{% url 'download_resume' item.application.id %}" class="btn btn-secondary btn-sm">Download Resume</a>
+                    {% endif %}
+                    <br><br>
+                    <a href="{% url 'application_history' item.application.id %}" class="btn btn-outline-info btn-sm">View Updates</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info text-center">
+        You have not applied to any job yet.
+    </div>
+    {% endif %}
+</div>
+
+{% include 'footer.html' %}
+
+{% endblock %}

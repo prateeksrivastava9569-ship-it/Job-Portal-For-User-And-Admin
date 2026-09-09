@@ -1,0 +1,1704 @@
+﻿from django.shortcuts import render, redirect
+from .models import *
+from django.contrib.auth.models import User, auth
+from django.contrib.auth import authenticate, login, logout
+from django.core.mail import send_mail
+from django.conf import settings
+from datetime import date
+import random
+import re
+import time
+import os
+import uuid
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile, File
+
+
+def is_valid_gmail_email(email):
+    if not email:
+        return False
+    value = email.strip()
+    if value.count('@') != 1:
+        return False
+    local_part, domain = value.split('@', 1)
+    return bool(local_part) and domain.lower() == 'gmail.com'
+
+
+def is_valid_mobile_number(value):
+    if not value:
+        return False
+    digits = ''.join(ch for ch in str(value).strip() if ch.isdigit())
+    if len(digits) == 10 and digits[:1] in {'6', '7', '8', '9'}:
+        return True
+    if len(digits) == 12 and digits.startswith('91') and digits[2:3] in {'6', '7', '8', '9'}:
+        return True
+    return False
+
+
+def _generate_signup_otp():
+    return str(random.randint(100000, 999999))
+
+
+def _save_temp_upload(uploaded_file):
+    """Save an uploaded file to MEDIA_ROOT/temp_signups and return the storage path."""
+    if not uploaded_file:
+        return None
+    folder = os.path.join('temp_signups')
+    # unique filename
+    name = f"temp_{uuid.uuid4().hex}_{uploaded_file.name}"
+    rel_path = os.path.join(folder, name)
+    # ensure folder exists in storage (FileSystemStorage will create subdirs as needed)
+    saved = default_storage.save(rel_path, ContentFile(uploaded_file.read()))
+    return saved
+
+
+def _clear_pending_signup(request):
+    # Attach any pending temp uploads to the created user/objects (if present), then clean up temp files
+    pending = request.session.get('pending_signup_data') or {}
+    try:
+        if isinstance(pending, dict):
+            email = (pending.get('email') or '').strip()
+            if email:
+                try:
+                    user = User.objects.filter(email__iexact=email).first()
+                    if user:
+                        # If a student exists for this user, attach files
+                        try:
+                            student = StudentUser.objects.filter(user=user).first()
+                            if student:
+                                img_path = pending.get('image_temp')
+                                if img_path and default_storage.exists(img_path):
+                                    with default_storage.open(img_path, 'rb') as f:
+                                        student.image.save(os.path.basename(img_path), File(f), save=True)
+                                resume_path = pending.get('resume_temp')
+                                if resume_path and default_storage.exists(resume_path):
+                                    with default_storage.open(resume_path, 'rb') as f:
+                                        student.resume.save(os.path.basename(resume_path), File(f), save=True)
+                        except Exception:
+                            pass
+
+                        # If a recruiter exists for this user, attach image
+                        try:
+                            rec = Recuiter.objects.filter(user=user).first()
+                            if rec:
+                                img_path = pending.get('image_temp')
+                                if img_path and default_storage.exists(img_path):
+                                    with default_storage.open(img_path, 'rb') as f:
+                                        rec.image.save(os.path.basename(img_path), File(f), save=True)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            # cleanup temp files recorded in pending payload
+            try:
+                if isinstance(pending, dict):
+                    for key in ('image_temp', 'resume_temp'):
+                        path = pending.get(key)
+                        if path and default_storage.exists(path):
+                            try:
+                                default_storage.delete(path)
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    for key in ['pending_signup_type', 'pending_signup_data', 'pending_signup_email_otp', 'pending_signup_mobile_otp', 'pending_signup_otp_time', 'pending_signup_demo_email_otp', 'pending_signup_demo_mobile_otp']:
+        request.session.pop(key, None)
+
+
+def _save_pending_signup(request, signup_type, payload):
+    # create separate OTPs for email and mobile verification
+    email_otp = _generate_signup_otp()
+    mobile_otp = _generate_signup_otp()
+    request.session['pending_signup_type'] = signup_type
+    request.session['pending_signup_data'] = payload
+    request.session['pending_signup_email_otp'] = email_otp
+    request.session['pending_signup_mobile_otp'] = mobile_otp
+    request.session['pending_signup_otp_time'] = time.time()
+    # store demo OTP for mobile so it can be displayed in demo mode; do not expose email OTP in UI
+    request.session['pending_signup_demo_mobile_otp'] = mobile_otp
+    request.session['pending_signup_demo_email_otp'] = email_otp
+    return email_otp, mobile_otp
+
+
+def _find_user_by_identifier(identifier):
+    value = (identifier or '').strip()
+    if not value:
+        return None
+
+    user = None
+    try:
+        user = User.objects.get(username=value)
+    except User.DoesNotExist:
+        pass
+
+    if user is None:
+        try:
+            user = User.objects.get(email=value)
+        except User.DoesNotExist:
+            pass
+
+    if user is None:
+        try:
+            user = User.objects.get(username__iexact=value)
+        except User.DoesNotExist:
+            pass
+
+    if user is not None:
+        return user
+
+    student_user = StudentUser.objects.filter(mobile=value).select_related('user').first()
+    if student_user:
+        return student_user.user
+
+    recruiter = Recuiter.objects.filter(mobile=value).select_related('user').first()
+    if recruiter:
+        return recruiter.user
+
+    return None
+
+
+def _send_otp_email(user, otp):
+    email_address = user.email or user.username
+    if not email_address:
+        return False
+    subject = 'Password Reset OTP'
+    message = f'Your OTP for password reset is: {otp}. It is valid for 30 seconds.'
+    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL or 'no-reply@example.com', [email_address], fail_silently=False)
+    return True
+
+
+def _normalize_mobile_number(value):
+    cleaned = (value or '').strip()
+    if not cleaned:
+        return cleaned
+    digits = ''.join(ch for ch in cleaned if ch.isdigit())
+    if len(digits) == 10:
+        return '+91' + digits
+    if cleaned.startswith('+'):
+        return cleaned
+    if digits.startswith('91') and len(digits) > 10:
+        return '+' + digits
+    return cleaned if cleaned.startswith('+') else '+' + digits if digits else cleaned
+
+
+def _send_otp_sms(user, otp):
+    # Demo OTP mode: do not send real SMS. This keeps the app simple and works without Twilio setup.
+    return True
+
+
+def _detect_reset_channel(identifier):
+    value = (identifier or '').strip()
+    if value.isdigit() and len(value) >= 10:
+        return 'mobile'
+    return 'email'
+
+
+def _clear_reset_session(request):
+    request.session.pop('reset_user_id', None)
+    request.session.pop('reset_otp', None)
+    request.session.pop('reset_otp_time', None)
+    request.session.pop('reset_verified', None)
+    request.session.pop('reset_identifier', None)
+    request.session.pop('reset_otp_channel', None)
+    request.session.pop('reset_otp_demo', None)
+    request.session.pop('reset_otp_error', None)
+
+
+def _get_interest_keywords_from_user(user):
+    if user is None:
+        return []
+
+    keywords = set()
+    student = StudentUser.objects.filter(user=user).first()
+    if student:
+        for field in [student.qualification, student.interest, student.experience, student.gender]:
+            for token in re.split(r'[,;|/]+', field or ''):
+                cleaned = re.sub(r'[^A-Za-z0-9 ]', ' ', token).strip()
+                if cleaned and len(cleaned) > 2:
+                    keywords.add(cleaned.lower())
+            keywords.update(part.lower() for part in re.split(r'[^A-Za-z0-9]+', field or '') if part and len(part) > 2)
+
+    email = user.email or user.username or ''
+    for application in Applyjob.objects.filter(email=email).order_by('-id')[:10]:
+        for field in [application.qualification, application.experience, application.gender]:
+            for token in re.split(r'[,;|/]+', field or ''):
+                cleaned = re.sub(r'[^A-Za-z0-9 ]', ' ', token).strip()
+                if cleaned and len(cleaned) > 2:
+                    keywords.add(cleaned.lower())
+            keywords.update(part.lower() for part in re.split(r'[^A-Za-z0-9]+', field or '') if part and len(part) > 2)
+
+    if not keywords:
+        for field in [user.first_name, user.last_name, user.email or user.username or '']:
+            keywords.update(part.lower() for part in re.split(r'[^A-Za-z0-9]+', field or '') if part and len(part) > 2)
+
+    return sorted(keywords)
+
+
+def _normalize_tokens(value):
+    tokens = set()
+    if not value:
+        return tokens
+    for token in re.split(r'[,;|/]+', value):
+        cleaned = re.sub(r'[^A-Za-z0-9 ]', ' ', token).strip()
+        if cleaned:
+            for part in cleaned.split():
+                if len(part) > 2:
+                    tokens.add(part.lower())
+    return tokens
+
+
+def _is_user_eligible_for_job(user, job):
+    if user is None or not user.is_authenticated or job is None:
+        return False
+
+    student = StudentUser.objects.filter(user=user).first()
+    if student is None:
+        return False
+
+    user_interest_tokens = set()
+    for field in [student.interest, student.qualification, student.gender]:
+        user_interest_tokens |= _normalize_tokens(field)
+
+    job_tokens = set()
+    for field in [job.title, job.skills, job.description, job.location]:
+        job_tokens |= _normalize_tokens(field)
+
+    if user_interest_tokens and (user_interest_tokens & job_tokens):
+        return True
+
+    if student.qualification and job.title and student.qualification.lower() in job.title.lower():
+        return True
+
+    if student.qualification and job.skills and student.qualification.lower() in job.skills.lower():
+        return True
+
+    try:
+        if student.experience and job.experience:
+            user_exp = int(str(student.experience).split()[0])
+            job_exp = int(str(job.experience).split()[0])
+            if user_exp < job_exp:
+                return False
+    except (TypeError, ValueError):
+        pass
+
+    return False
+
+
+def _get_recommended_jobs_for_user(user):
+    base_jobs = list(Job.objects.all().order_by('-creationdate', '-id'))
+    if user is None or not user.is_authenticated:
+        return base_jobs[:4]
+
+    interest_keywords = _get_interest_keywords_from_user(user)
+    if not interest_keywords:
+        return base_jobs[:4]
+
+    scored_jobs = []
+    for job in base_jobs:
+        searchable = ' '.join([
+            job.title or '',
+            job.skills or '',
+            job.description or '',
+            job.location or ''
+        ]).lower()
+        score = 0
+        for keyword in interest_keywords:
+            if keyword in searchable:
+                score += 2
+            if keyword in (job.title or '').lower():
+                score += 3
+        if score > 0:
+            scored_jobs.append((score, job))
+
+    if scored_jobs:
+        scored_jobs.sort(key=lambda item: item[0], reverse=True)
+        recommended = [job for _, job in scored_jobs[:4]]
+        seen = {job.id for job in recommended}
+        for job in base_jobs:
+            if job.id not in seen:
+                recommended.append(job)
+                seen.add(job.id)
+            if len(recommended) >= 4:
+                break
+        return recommended[:4]
+
+    return base_jobs[:4]
+
+
+# Create your views here.
+def index(request):
+    return render(request, 'index.html')
+
+
+def contact_us(request):
+    if request.method == 'POST':
+        return render(request, 'contact_us.html', {'submitted': True})
+    return render(request, 'contact_us.html', {'submitted': False})
+
+
+def admin_login(request):
+    error = ""
+    if request.method == "POST":
+        ur = (request.POST.get('uname') or '').strip()
+        pd = request.POST.get('pwd') or ''
+        user = None
+        try:
+            user = auth.authenticate(username=ur, password=pd)
+        except Exception:
+            user = None
+        if user is None and ur:
+            try:
+                user_obj = User.objects.filter(email=ur).first()
+                if user_obj:
+                    user = auth.authenticate(username=user_obj.username, password=pd)
+            except Exception:
+                user = None
+        if user is not None:
+            try:
+                if user.is_staff:
+                    auth.login(request, user)
+                    error = "no"
+                else:
+                    error = "yes"
+            except Exception:
+                error = "yes"
+        else:
+            error = "yes"
+    d = {'error': error}
+    return render(request, 'admin_login.html', d)
+
+
+def user_login(request):
+    error = ""
+    if request.method == "POST":
+        u = (request.POST.get('uname') or '').strip()
+        p = request.POST.get('pwd') or ''
+        user = None
+        try:
+            user = authenticate(username=u, password=p)
+        except Exception:
+            user = None
+        if user is None and u:
+            try:
+                user_obj = User.objects.filter(email=u).first()
+                if user_obj:
+                    user = authenticate(username=user_obj.username, password=p)
+            except Exception:
+                user = None
+        if user:
+            try:
+                user1 = StudentUser.objects.filter(user=user, type='student').first()
+                if user1:
+                    login(request, user)
+                    error = "no"
+                else:
+                    error = "yes"
+            except Exception:
+                error = "yes"
+        else:
+            error = "yes"
+    d = {'error': error}
+    return render(request, 'user_login.html', d)
+
+
+def forgot_password(request):
+    error = ""
+    identifier = request.session.get('reset_identifier', '')
+
+    if request.GET.get('resend') == '1' and identifier:
+        user = _find_user_by_identifier(identifier)
+        if user is not None:
+            otp = str(random.randint(100000, 999999))
+            request.session['reset_user_id'] = user.id
+            request.session['reset_otp'] = otp
+            request.session['reset_otp_time'] = time.time()
+            request.session['reset_verified'] = False
+            channel = _detect_reset_channel(identifier)
+            request.session['reset_otp_channel'] = channel
+            request.session['reset_otp_demo'] = otp if channel == 'mobile' else ''
+            if channel == 'mobile':
+                _send_otp_sms(user, otp)
+                return redirect('verify_otp')
+            email_sent = _send_otp_email(user, otp)
+            if not email_sent:
+                _clear_reset_session(request)
+                return render(request, 'forgot_password.html', {'error': 'invalid', 'identifier': identifier})
+            return redirect('verify_otp')
+
+    if request.method == 'POST':
+        identifier = request.POST.get('identifier', '').strip()
+        request.session['reset_identifier'] = identifier
+        user = _find_user_by_identifier(identifier)
+        if user is None:
+            error = 'invalid'
+        else:
+            otp = str(random.randint(100000, 999999))
+            request.session['reset_user_id'] = user.id
+            request.session['reset_otp'] = otp
+            request.session['reset_otp_time'] = time.time()
+            request.session['reset_verified'] = False
+            channel = _detect_reset_channel(identifier)
+            request.session['reset_otp_channel'] = channel
+            request.session['reset_otp_demo'] = otp if channel == 'mobile' else ''
+
+            if channel == 'mobile':
+                _send_otp_sms(user, otp)
+                return redirect('verify_otp')
+
+            email_sent = _send_otp_email(user, otp)
+            if not email_sent:
+                error = 'invalid'
+                _clear_reset_session(request)
+                return render(request, 'forgot_password.html', {'error': error, 'identifier': identifier})
+            return redirect('verify_otp')
+    return render(request, 'forgot_password.html', {'error': error, 'identifier': identifier})
+
+
+def verify_otp(request):
+    if not request.session.get('reset_user_id'):
+        return redirect('forgot_password')
+
+    error = ""
+    reset_otp_time = request.session.get('reset_otp_time', 0)
+    seconds_left = max(0, 60 - int(time.time() - float(reset_otp_time)))
+    channel = request.session.get('reset_otp_channel', 'email')
+
+    if request.method == 'POST':
+        entered_otp = (request.POST.get('otp') or '').strip()
+        stored_otp = request.session.get('reset_otp')
+        stored_time = request.session.get('reset_otp_time', 0)
+
+        if not stored_otp or (time.time() - float(stored_time)) > 60:
+            error = 'expired'
+            _clear_reset_session(request)
+        elif entered_otp == stored_otp:
+            request.session['reset_verified'] = True
+            return redirect('reset_password')
+        else:
+            error = 'invalid'
+
+    demo_otp = request.session.get('reset_otp_demo', '')
+    return render(request, 'verify_otp.html', {'error': error, 'seconds_left': seconds_left, 'channel': channel, 'demo_otp': demo_otp})
+
+
+def reset_password(request):
+    if not request.session.get('reset_user_id') or not request.session.get('reset_verified'):
+        return redirect('forgot_password')
+
+    error = ""
+    if request.method == 'POST':
+        pwd = request.POST.get('password')
+        cpwd = request.POST.get('confirm_password')
+        if not pwd or not cpwd:
+            error = 'invalid'
+        elif pwd != cpwd:
+            error = 'match'
+        else:
+            user = User.objects.get(id=request.session['reset_user_id'])
+            user.set_password(pwd)
+            user.save()
+            _clear_reset_session(request)
+
+            if user.is_staff:
+                return redirect('admin_login')
+            if StudentUser.objects.filter(user=user, type='student').exists():
+                return redirect('user_login')
+            if Recuiter.objects.filter(user=user, type='recuiter').exists():
+                return redirect('recuiter_login')
+            return redirect('user_login')
+
+    return render(request, 'reset_password.html', {'error': error})
+
+
+def recuiter_login(request):
+    error = ""
+    if request.method == "POST":
+        u = (request.POST.get('uname') or '').strip()
+        p = request.POST.get('pwd') or ''
+        user = None
+        try:
+            user = authenticate(username=u, password=p)
+        except Exception:
+            user = None
+        if user is None and u:
+            try:
+                user_obj = User.objects.filter(email=u).first()
+                if user_obj:
+                    user = authenticate(username=user_obj.username, password=p)
+            except Exception:
+                user = None
+        if user:
+            try:
+                user1 = Recuiter.objects.filter(user=user, type='recuiter').first()
+                if user1 and user1.status != 'pending':
+                    login(request, user)
+                    error = "no"
+                else:
+                    error = "not"
+            except Exception:
+                error = "yes"
+        else:
+            error = "yes"
+    d = {'error': error}
+    return render(request, 'recuiter_login.html', d)
+
+
+def recuiter_signup(request):
+    error = ""
+    form_data = request.POST.copy() if request.method == 'POST' else {}
+    email_otp_value = (request.POST.get('email_otp') or '').strip()
+    mobile_otp_value = (request.POST.get('mobile_otp') or '').strip()
+    pending_signup_data = request.session.get('pending_signup_data')
+    pending_email_otp = request.session.get('pending_signup_email_otp')
+    pending_mobile_otp = request.session.get('pending_signup_mobile_otp')
+    demo_mobile_otp = request.session.get('pending_signup_demo_mobile_otp', '')
+    demo_email_otp = request.session.get('pending_signup_demo_email_otp', '')
+    otp_value = email_otp_value or mobile_otp_value
+
+    # If the user navigates back (GET) to the signup page while a pending signup exists,
+    # support explicit resend and cancel. If GET without action, clear pending to avoid getting stuck on OTP.
+    pending_seconds_left = 0
+    if request.method == 'GET':
+        if request.GET.get('cancel_pending') == '1':
+            _clear_pending_signup(request)
+            return redirect('recuiter_signup')
+        if request.GET.get('resend_otp') == '1' and pending_signup_data:
+            # enforce a 60-second resend cooldown
+            last = float(request.session.get('pending_signup_otp_time', 0) or 0)
+            elapsed = time.time() - last
+            if elapsed < 60:
+                # do not regenerate - inform template via error flag; pending data remains until explicit cancel
+                error = 'resend_wait'
+            else:
+                signup_type = request.session.get('pending_signup_type', 'recuiter')
+                email_otp, mobile_otp = _save_pending_signup(request, signup_type, pending_signup_data)
+                try:
+                    send_mail('Email Verification OTP', f'Your signup email verification OTP is: {email_otp}. This code is valid for 1 minute.', settings.DEFAULT_FROM_EMAIL or 'no-reply@example.com', [pending_signup_data.get('email')], fail_silently=True)
+                except Exception:
+                    pass
+                # Redirect so template reads the session-based pending payload
+                return redirect('recuiter_signup')
+
+        elif pending_signup_data:
+            # user navigated back - clear pending so form becomes blank per user request
+            _clear_pending_signup(request)
+            pending_signup_data = None
+            pending_email_otp = None
+            pending_mobile_otp = None
+            demo_mobile_otp = ''
+
+    if request.session.get('pending_signup_otp_time'):
+        pending_seconds_left = max(0, 60 - int(time.time() - float(request.session.get('pending_signup_otp_time', 0))))
+
+    if request.method == 'POST' and (email_otp_value or mobile_otp_value):
+        if pending_signup_data and (pending_email_otp or pending_mobile_otp):
+            if (time.time() - float(request.session.get('pending_signup_otp_time', 0))) > 60:
+                error = 'otp_expired'
+                _clear_pending_signup(request)
+            elif email_otp_value == (pending_email_otp or '') and mobile_otp_value == (pending_mobile_otp or ''):
+                payload = pending_signup_data
+                try:
+                    pwd_val = payload.get('pwd', '').strip()
+                    username_val = payload.get('email', '').strip()
+                    user = User.objects.create_user(username=username_val, email=username_val, password=pwd_val)
+                    user.first_name = payload.get('fname', '').strip()
+                    user.last_name = payload.get('lname', '').strip()
+                    user.save()
+                    Recuiter.objects.create(user=user, mobile=payload.get('contact', '').strip(), image=request.FILES.get('image') if request.FILES else None, gender=payload.get('gender', '').strip(), company=payload.get('company', '').strip(), type='recuiter', status='pending')
+                    _clear_pending_signup(request)
+                    return render(request, 'recuiter_signup.html', {'error': 'no', 'form_data': {}})
+                except Exception:
+                    error = 'yes'
+                    _clear_pending_signup(request)
+            else:
+                error = 'otp_invalid'
+        else:
+            error = 'otp_invalid'
+
+    if request.method == 'POST' and not (email_otp_value or mobile_otp_value) and not pending_signup_data:
+        f = (request.POST.get('fname') or '').strip()
+        l = (request.POST.get('lname') or '').strip()
+        i = request.FILES.get('image')
+        p = request.POST.get('pwd') or ''
+        e = (request.POST.get('email') or '').strip()
+        con = (request.POST.get('contact') or '').strip()
+        gen = (request.POST.get('gender') or '').strip()
+        company = (request.POST.get('company') or '').strip()
+
+        if not all([f, p, e, con, gen, company]):
+            error = 'required'
+        elif not is_valid_mobile_number(con):
+            error = 'mobile'
+        elif not is_valid_gmail_email(e):
+            error = 'gmail'
+        elif User.objects.filter(email__iexact=e).exists() or User.objects.filter(username__iexact=e).exists():
+            error = 'exists'
+        else:
+            payload = {'fname': f, 'lname': l, 'pwd': p, 'email': e, 'contact': con, 'gender': gen, 'company': company}
+            email_otp, mobile_otp = _save_pending_signup(request, 'recuiter', payload)
+            try:
+                send_mail('Email Verification OTP', f'Your signup email verification OTP is: {email_otp}. This code is valid for 1 minute.', settings.DEFAULT_FROM_EMAIL or 'no-reply@example.com', [e], fail_silently=False)
+            except Exception:
+                pass
+            # Use PRG to render OTP UI from session-backed pending payload
+            return redirect('recuiter_signup')
+
+    if pending_signup_data and not (email_otp_value or mobile_otp_value):
+        form_data = pending_signup_data
+        pending_email_otp = request.session.get('pending_signup_email_otp')
+        pending_mobile_otp = request.session.get('pending_signup_mobile_otp')
+        demo_mobile_otp = request.session.get('pending_signup_demo_mobile_otp', pending_mobile_otp)
+        error = error or 'otp_required'
+
+    d = {
+        'error': error,
+        'form_data': form_data,
+        'pending_otp': bool(pending_signup_data and not (email_otp_value or mobile_otp_value)),
+        'demo_mobile_otp': demo_mobile_otp,
+        'demo_email_otp': demo_email_otp,
+        'pending_seconds_left': pending_seconds_left
+    }
+    return render(request, 'recuiter_signup.html', d)
+
+
+def user_profile(request):
+    if not request.user.is_authenticated:
+        return redirect('user_login')
+
+    user = request.user
+    student = StudentUser.objects.filter(user=user).first()
+    if student is None:
+        return redirect('user_home')
+
+    error = ""
+    selected_interests = [item.strip() for item in (student.interest or '').split(',') if item.strip()]
+    if request.method == 'POST':
+        first_name = (request.POST.get('fname') or '').strip()
+        last_name = (request.POST.get('lname') or '').strip()
+        mobile = (request.POST.get('contact') or '').strip()
+        gender = (request.POST.get('gender') or '').strip()
+        qualification = (request.POST.get('qualification') or '').strip()
+        experience = (request.POST.get('experience') or '').strip()
+        selected_interests = request.POST.getlist('interest')
+        image = request.FILES.get('image')
+        resume = request.FILES.get('resume')
+
+        if not first_name or not mobile or not gender or not qualification or not experience or not selected_interests:
+            error = 'required'
+        elif not is_valid_mobile_number(mobile):
+            error = 'mobile'
+        else:
+            user.first_name = first_name
+            user.last_name = last_name
+            user.save()
+            student.mobile = mobile
+            student.gender = gender
+            student.qualification = qualification
+            student.experience = experience
+            student.interest = ', '.join(selected_interests)
+            if image is not None:
+                student.image = image
+            if resume is not None:
+                student.resume = resume
+            student.save()
+            error = 'no'
+            selected_interests = [item.strip() for item in student.interest.split(',') if item.strip()]
+
+    d = {'student': student, 'error': error, 'selected_interests': selected_interests}
+    return render(request, 'user_profile.html', d)
+
+
+def recruiter_profile(request):
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+
+    recruiter = Recuiter.objects.filter(user=request.user).first()
+    if recruiter is None:
+        return redirect('recuiter_home')
+
+    error = ""
+    if request.method == 'POST':
+        first_name = (request.POST.get('fname') or '').strip()
+        last_name = (request.POST.get('lname') or '').strip()
+        mobile = (request.POST.get('contact') or '').strip()
+        company = (request.POST.get('company') or '').strip()
+        gender = (request.POST.get('gender') or '').strip()
+        image = request.FILES.get('image')
+
+        if not first_name or not mobile or not company or not gender:
+            error = 'required'
+        elif not is_valid_mobile_number(mobile):
+            error = 'mobile'
+        else:
+            request.user.first_name = first_name
+            request.user.last_name = last_name
+            request.user.save()
+            recruiter.mobile = mobile
+            recruiter.company = company
+            recruiter.gender = gender
+            if image is not None:
+                recruiter.image = image
+            recruiter.save()
+            error = 'no'
+
+    d = {'recruiter': recruiter, 'error': error}
+    return render(request, 'recuiter_profile.html', d)
+
+
+def user_home(request):
+    if not request.user.is_authenticated:
+        return redirect('user_login')
+
+    eligibility_message = request.session.pop('eligibility_message', '')
+    apply_message = request.session.pop('apply_message', '')
+    recommended_jobs = _get_recommended_jobs_for_user(request.user)
+    return render(request, 'user_home.html', {'recommended_jobs': recommended_jobs, 'eligibility_message': eligibility_message, 'apply_message': apply_message})
+
+
+def admin_home(request):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    return render(request, 'admin_home.html')
+
+
+def recuiter_home(request):
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+    user = request.user
+    recuiter = Recuiter.objects.get(user=user)
+    error = ""
+    if request.method == 'POST':
+        f = request.POST['fname']
+        l = request.POST['lname']
+        con = request.POST['contact']
+        gen = request.POST['gender']
+        company = request.POST['company']
+
+        recuiter.user.first_name = f
+        recuiter.user.last_name = l
+        recuiter.mobile = con
+        recuiter.gender = gen
+
+        try:
+            recuiter.save()
+            recuiter.user.save()
+            error = "no"
+        except:
+            error = "yes"
+        try:
+            i = request.FILES['image']
+            recuiter.image = i
+            recuiter.save()
+            error = "no"
+        except:
+            pass
+    d = {'recuiter': recuiter, 'error': error}
+    return render(request, 'recuiter_home.html', d)
+
+
+def logout(request):
+    auth.logout(request)
+    return redirect('/')
+
+
+def user_signup(request):
+    error = ""
+    form_data = request.POST.copy() if request.method == 'POST' else {}
+    selected_interests = request.POST.getlist('interest') if request.method == 'POST' else []
+    email_otp_value = (request.POST.get('email_otp') or '').strip()
+    mobile_otp_value = (request.POST.get('mobile_otp') or '').strip()
+    pending_signup_data = request.session.get('pending_signup_data')
+    pending_email_otp = request.session.get('pending_signup_email_otp')
+    pending_mobile_otp = request.session.get('pending_signup_mobile_otp')
+    demo_mobile_otp = request.session.get('pending_signup_demo_mobile_otp', '')
+    demo_email_otp = request.session.get('pending_signup_demo_email_otp', '')
+    otp_value = email_otp_value or mobile_otp_value
+
+    # If the user navigates back (GET) to the signup page while a pending signup exists,
+    # support explicit resend and cancel. If GET without action, clear pending to avoid getting stuck on OTP.
+    pending_seconds_left = 0
+    if request.method == 'GET':
+        if request.GET.get('cancel_pending') == '1':
+            _clear_pending_signup(request)
+            return redirect('user_signup')
+        if request.GET.get('resend_otp') == '1' and pending_signup_data:
+            # enforce a 60-second resend cooldown
+            last = float(request.session.get('pending_signup_otp_time', 0) or 0)
+            elapsed = time.time() - last
+            if elapsed < 60:
+                error = 'resend_wait'
+            else:
+                signup_type = request.session.get('pending_signup_type', 'user')
+                email_otp, mobile_otp = _save_pending_signup(request, signup_type, pending_signup_data)
+                try:
+                    send_mail('Email Verification OTP', f'Your signup email verification OTP is: {email_otp}. This code is valid for 1 minute.', settings.DEFAULT_FROM_EMAIL or 'no-reply@example.com', [pending_signup_data.get('email')], fail_silently=True)
+                except Exception:
+                    pass
+                return redirect('user_signup')
+        elif pending_signup_data:
+            # user navigated back - clear pending so form becomes blank per user request
+            _clear_pending_signup(request)
+            pending_signup_data = None
+            pending_email_otp = None
+            pending_mobile_otp = None
+            demo_mobile_otp = ''
+
+    # compute seconds left for current OTP (1 minute TTL)
+    if request.session.get('pending_signup_otp_time'):
+        pending_seconds_left = max(0, 60 - int(time.time() - float(request.session.get('pending_signup_otp_time', 0))))
+
+    if request.method == 'POST' and (email_otp_value or mobile_otp_value):
+        if pending_signup_data and (pending_email_otp or pending_mobile_otp):
+            if (time.time() - float(request.session.get('pending_signup_otp_time', 0))) > 60:
+                error = 'otp_expired'
+                _clear_pending_signup(request)
+            elif email_otp_value == (pending_email_otp or '') and mobile_otp_value == (pending_mobile_otp or ''):
+                payload = pending_signup_data
+                try:
+                    pwd_val = payload.get('pwd', '').strip()
+                    username_val = payload.get('email', '').strip()
+                    user = User.objects.create_user(username=username_val, email=username_val, password=pwd_val)
+                    user.first_name = payload.get('fname', '').strip()
+                    user.last_name = payload.get('lname', '').strip()
+                    user.save()
+                    StudentUser.objects.create(
+                        user=user,
+                        mobile=payload.get('contact', '').strip(),
+                        image=request.FILES.get('image') if request.FILES else None,
+                        gender=payload.get('gender', '').strip(),
+                        qualification=payload.get('qualification', '').strip(),
+                        interest=', '.join(payload.get('interests', [])),
+                        experience=payload.get('experience', '').strip(),
+                        type='student',
+                        resume=request.FILES.get('resume') if request.FILES else None
+                    )
+                    _clear_pending_signup(request)
+                    return render(request, 'user_signup.html', {'error': 'no', 'form_data': {}, 'selected_interests': []})
+                except Exception:
+                    error = 'yes'
+                    _clear_pending_signup(request)
+            else:
+                error = 'otp_invalid'
+        else:
+            error = 'otp_invalid'
+
+    if request.method == 'POST' and not (email_otp_value or mobile_otp_value) and not pending_signup_data:
+        f = (request.POST.get('fname') or '').strip()
+        l = (request.POST.get('lname') or '').strip()
+        i = request.FILES.get('image')
+        p = request.POST.get('pwd') or ''
+        e = (request.POST.get('email') or '').strip()
+        con = (request.POST.get('contact') or '').strip()
+        gen = (request.POST.get('gender') or '').strip()
+        qualification = (request.POST.get('qualification') or '').strip()
+        selected_interests = request.POST.getlist('interest')
+        interest = ', '.join(selected_interests).strip()
+        experience = (request.POST.get('experience') or '').strip()
+        resume = request.FILES.get('resume')
+
+        if not all([f, p, e, con, gen, qualification, experience]):
+            error = 'required'
+        elif not selected_interests:
+            error = 'interest'
+        elif not is_valid_mobile_number(con):
+            error = 'mobile'
+        elif not is_valid_gmail_email(e):
+            error = 'gmail'
+        elif User.objects.filter(email__iexact=e).exists() or User.objects.filter(username__iexact=e).exists():
+            error = 'exists'
+        else:
+                    # preserve confirm password and save any uploaded image/resume to temp storage so they persist while OTP is pending
+                    cpwd = request.POST.get('cpwd') or ''
+                    payload = {
+                        'fname': f,
+                        'lname': l,
+                        'pwd': p,
+                        'cpwd': cpwd,
+                        'email': e,
+                        'contact': con,
+                        'gender': gen,
+                        'qualification': qualification,
+                        'interests': selected_interests,
+                        'experience': experience
+                    }
+                    # save uploaded files to temporary storage and record their storage path
+                    if i:
+                        try:
+                            payload['image_temp'] = _save_temp_upload(i)
+                        except Exception:
+                            payload['image_temp'] = None
+                    if resume:
+                        try:
+                            payload['resume_temp'] = _save_temp_upload(resume)
+                        except Exception:
+                            payload['resume_temp'] = None
+
+                    email_otp, mobile_otp = _save_pending_signup(request, 'user', payload)
+                    # Attempt to send email OTP, but whether send succeeds or fails the OTP and temp upload
+                    # information is saved in session. Use Post-Redirect-Get so the page renders from session
+                    # state and users don't lose form inputs when refreshing or using back button.
+                    try:
+                        send_mail('Email Verification OTP', f'Your signup email verification OTP is: {email_otp}. This code is valid for 1 minute.', settings.DEFAULT_FROM_EMAIL or 'no-reply@example.com', [e], fail_silently=False)
+                    except Exception:
+                        # swallow - session still contains OTPs for demo_mobile_otp/demo_email_otp
+                        pass
+                    return redirect('user_signup')
+
+    if pending_signup_data and not (email_otp_value or mobile_otp_value):
+        form_data = pending_signup_data
+        pending_email_otp = request.session.get('pending_signup_email_otp')
+        pending_mobile_otp = request.session.get('pending_signup_mobile_otp')
+        demo_mobile_otp = request.session.get('pending_signup_demo_mobile_otp', pending_mobile_otp)
+        selected_interests = list(pending_signup_data.get('interests', [])) if isinstance(pending_signup_data.get('interests', []), list) else []
+        error = error or 'otp_required'
+
+    d = {
+        'error': error,
+        'form_data': form_data,
+        'selected_interests': selected_interests,
+        'pending_otp': bool(pending_signup_data and not (email_otp_value or mobile_otp_value)),
+        'demo_mobile_otp': demo_mobile_otp,
+        'demo_email_otp': demo_email_otp,
+        'pending_seconds_left': pending_seconds_left
+    }
+    return render(request, 'user_signup.html', d)
+
+
+def view_users(request):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    data = StudentUser.objects.all()
+    d = {'data': data}
+    return render(request, 'view_users.html', d)
+
+
+def delete_user(request, pid):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    student = User.objects.get(id=pid)
+    student.delete()
+    return redirect('view_users')
+
+
+def delete_recuiter(request, pid):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    recuiter = User.objects.get(id=pid)
+    recuiter.delete()
+    return redirect('recuiter_all')
+
+
+def recuiter_pending(request):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    data = Recuiter.objects.filter(status='pending')
+    d = {'data': data}
+    return render(request, 'recuiter_pending.html', d)
+
+
+def change_status(request, pid):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    error = ""
+    recuiter = Recuiter.objects.get(id=pid)
+    if request.method == "POST":
+        s = request.POST['status']
+        recuiter.status = s
+        try:
+            recuiter.save()
+            error = "no"
+        except:
+            error = "yes"
+    d = {'recuiter': recuiter, 'error': error}
+    return render(request, 'change_status.html', d)
+
+
+def recuiter_accepted(request):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    data = Recuiter.objects.filter(status='Accept')
+    d = {'data': data}
+    return render(request, 'recuiter_accepted.html', d)
+
+
+def recuiter_rejected(request):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    data = Recuiter.objects.filter(status='Reject')
+    d = {'data': data}
+    return render(request, 'recuiter_accepted.html', d)
+
+
+def recuiter_all(request):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    data = Recuiter.objects.all()
+    d = {'data': data}
+    return render(request, 'recuiter_accepted.html', d)
+
+
+def change_passwordadmin(request):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    error = ""
+    if request.method == "POST":
+        c = request.POST['currentpassword']
+        n = request.POST['newpassword']
+        try:
+            u = User.objects.get(id=request.user.id)
+            if u.check_password(c):
+                u.set_password(n)
+                u.save()
+                error = "no"
+            else:
+                error = "not"
+        except:
+            error = "yes"
+    d = {'error': error}
+    return render(request, 'change_passwordadmin.html', d)
+
+
+def change_passworduser(request):
+    if not request.user.is_authenticated:
+        return redirect('user_login')
+    error = ""
+    if request.method == "POST":
+        c = request.POST['currentpassword']
+        n = request.POST['newpassword']
+        try:
+            u = User.objects.get(id=request.user.id)
+            if u.check_password(c):
+                u.set_password(n)
+                u.save()
+                error = "no"
+            else:
+                error = "not"
+        except:
+            error = "yes"
+    d = {'error': error}
+    return render(request, 'change_passworduser.html', d)
+
+
+def change_passwordrecuiter(request):
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+    error = ""
+    if request.method == "POST":
+        c = request.POST['currentpassword']
+        n = request.POST['newpassword']
+        try:
+            u = User.objects.get(id=request.user.id)
+            if u.check_password(c):
+                u.set_password(n)
+                u.save()
+                error = "no"
+            else:
+                error = "not"
+        except:
+            error = "yes"
+    d = {'error': error}
+    return render(request, 'change_passwordrecuiter.html', d)
+
+
+def add_job(request):
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+    error = ""
+    if request.method == 'POST':
+        jt = request.POST['jobtitle']
+        st = request.POST['startdate']
+        ed = request.POST['enddate']
+        sal = request.POST['salary']
+        l = request.FILES['logo']
+        exc = request.POST['experience']
+        loc = request.POST['location']
+        skills = request.POST['skills']
+        des = request.POST['description']
+        user = request.user
+        recuiter = Recuiter.objects.get(user=user)
+        try:
+            Job.objects.create(recuiter=recuiter, end_date=ed, start_date=st, title=jt, salary=sal, image=l, description=des, experience=exc, location=loc, skills=skills, creationdate=date.today())
+            error = "no"
+        except:
+            error = "yes"
+    d = {'error': error}
+    return render(request, 'add_job.html', d)
+
+
+def job_list(request):
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+    user = request.user
+    recuiter = Recuiter.objects.get(user=user)
+    job = Job.objects.filter(recuiter=recuiter)
+    d = {'job': job}
+    return render(request, 'job_list.html', d)
+
+
+def edit_jobdetail(request, pid):
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+    error = ""
+    job = Job.objects.get(id=pid)
+    if request.method == 'POST':
+        jt = request.POST['jobtitle']
+        st = request.POST['startdate']
+        ed = request.POST['enddate']
+        sal = request.POST['salary']
+        exc = request.POST['experience']
+        loc = request.POST['location']
+        skills = request.POST['skills']
+        des = request.POST['description']
+        job.title = jt
+        job.salary = sal
+        job.experience = exc
+        job.location = loc
+        job.skills = skills
+        job.description = des
+        try:
+            job.save()
+            error = "no"
+        except:
+            error = "yes"
+        if st:
+            try:
+                job.start_date = st
+                job.save()
+            except:
+                pass
+        if ed:
+            try:
+                job.end_date = ed
+                job.save()
+            except:
+                pass
+    d = {'error': error, 'job': job}
+    return render(request, 'edit_jobdetail.html', d)
+
+
+def change_companylogo(request, pid):
+    if not request.user.is_authenticated:
+        return redirect('admin_login')
+    error = ""
+    job = Job.objects.get(id=pid)
+    if request.method == 'POST':
+        l = request.FILES['logo']
+        job.image = l
+        try:
+            job.save()
+            error = "no"
+        except:
+            error = "yes"
+    d = {'error': error, 'job': job}
+    return render(request, 'change_companylogo.html', d)
+
+
+def view_job_user(request):
+    if not request.user.is_authenticated:
+        return redirect('user_login')
+    data = Job.objects.all()
+    d = {'data': data}
+    return render(request, 'view_job_user.html', d)
+
+
+def my_applied_jobs(request):
+    if not request.user.is_authenticated:
+        return redirect('user_login')
+
+    user_email = request.user.email or request.user.username
+    applications = Applyjob.objects.filter(email=user_email).order_by('-id')
+    data = []
+    for application in applications:
+        job = None
+        if application.num:
+            try:
+                job = Job.objects.get(id=application.num)
+            except Job.DoesNotExist:
+                pass
+        data.append({'application': application, 'job': job})
+
+    d = {'data': data}
+    return render(request, 'my_applied_jobs.html', d)
+
+
+def full_job_detail(request, id):
+    data = Job.objects.get(id=id)
+    user = request.user
+    eligible = False
+    message = ''
+    if user.is_authenticated:
+        eligible = _is_user_eligible_for_job(user, data)
+        if not eligible:
+            message = 'You are not eligible for this job.'
+    d = {'data': data, 'eligible': eligible, 'message': message}
+    return render(request, 'full_job_detail.html', d)
+
+
+def apply_now(request, id):
+    if not request.user.is_authenticated:
+        return redirect('user_login')
+
+    user = request.user
+    student = StudentUser.objects.filter(user=user).first()
+    job = Job.objects.filter(id=id).first()
+    if job is None:
+        return redirect('user_home')
+
+    user_email = user.email or user.username
+    # Prevent duplicate applications for the same user and job
+    if Applyjob.objects.filter(email=user_email, num=id).exists():
+        request.session['apply_message'] = 'You have already applied for this job.'
+        return redirect('user_home')
+
+    if not _is_user_eligible_for_job(user, job):
+        request.session['eligibility_message'] = 'You are not eligible for this job.'
+        return redirect('user_home')
+
+    if request.method == 'GET' and request.GET.get('proceed') != '1':
+        return render(request, 'apply_confirm.html', {'job': job, 'user': user})
+
+    error = ""
+    if request.method == 'POST':
+        f = request.POST.get('fname') or user.first_name
+        l = request.POST.get('lname') or user.last_name
+        con = request.POST.get('contact') or (student.mobile if student else '')
+        email = request.POST.get('email') or (user.email or user.username)
+        ex = request.POST.get('exp') or (student.experience if student else '0')
+        q = request.POST.get('que') or (student.qualification if student else '')
+        g = request.POST.get('gender') or (student.gender if student else '')
+        i = request.FILES.get('image') or (student.image if student else None)
+    resume_file = request.FILES.get('resume')
+
+    if student:
+        if not student.qualification and q:
+            student.qualification = q
+        if not student.experience and ex:
+            student.experience = ex
+        if not student.gender and g:
+            student.gender = g
+        if not student.mobile and con:
+            student.mobile = con
+        student.save()
+
+    if not con or not q or not g:
+        error = 'yes'
+    else:
+        try:
+            # Save application with optional resume
+            app_kwargs = dict(fname=f, lname=l, mobile=con, email=email, experience=ex,
+                              qualification=q, gender=g, image=i, num=id, status='Pending')
+            if resume_file:
+                app_kwargs['resume'] = resume_file
+            Applyjob.objects.create(**app_kwargs)
+            return redirect('apply_success', id=id)
+        except Exception:
+            error = 'yes'
+
+    d = {'user': user, 'student': student, 'error': error, 'job': job}
+    return render(request, 'apply_now.html', d)
+
+
+def download_resume(request, id):
+    # Allow recruiter, staff, or the applicant to download resume attached to an application
+    try:
+        application = Applyjob.objects.get(id=id)
+    except Applyjob.DoesNotExist:
+        return redirect('applied_condidate_list')
+
+    if not application.resume:
+        request.session['apply_message'] = 'No resume is attached to this application.'
+        return redirect('applied_condidate_list')
+
+    user = request.user
+    allowed = False
+    if user.is_authenticated and (user.is_staff or (application.email and (user.email == application.email or user.username == application.email))):
+        allowed = True
+    else:
+        # allow job's recruiter
+        try:
+            job = Job.objects.get(id=application.num)
+            if job and job.recuiter and user.is_authenticated and job.recuiter.user == user:
+                allowed = True
+        except Job.DoesNotExist:
+            pass
+
+    if not allowed:
+        request.session['apply_message'] = 'You are not authorized to download this resume.'
+        return redirect('applied_condidate_list')
+
+    # Serve the file
+    from django.http import FileResponse
+    try:
+        return FileResponse(application.resume.open('rb'), as_attachment=True, filename=f"Resume_{application.fname}_{application.lname}_{application.id}{application.resume.name and '.' + application.resume.name.split('.')[-1] or ''}")
+    except Exception:
+        request.session['apply_message'] = 'Failed to retrieve resume file.'
+        return redirect('applied_condidate_list')
+
+
+def apply_success(request, id):
+    if not request.user.is_authenticated:
+        return redirect('user_login')
+    job = Job.objects.filter(id=id).first()
+    if job is None:
+        return redirect('user_home')
+    return render(request, 'apply_success.html', {'job': job})
+
+
+def applyed_condidate(request):
+    data = Job.objects.all()
+    d = {'data': data}
+    return render(request, 'applyed_condidate.html', d)
+
+
+def applied_condidate_list(request):
+    data = Applyjob.objects.all()
+    d = {'data': data}
+    return render(request, 'applied_condidate_list.html', d)
+
+
+from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
+from django.utils import timezone
+
+
+def change_application_status(request, id):
+    # Only authenticated recruiters for the job or staff can change status
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+
+    try:
+        application = Applyjob.objects.get(id=id)
+    except Applyjob.DoesNotExist:
+        return redirect('applied_condidate_list')
+
+    # Determine the related job (if any)
+    job = None
+    try:
+        job = Job.objects.get(id=application.num)
+    except Job.DoesNotExist:
+        job = None
+
+    # Authorization: allow if staff or the job's recruiter
+    allowed = False
+    if request.user.is_staff:
+        allowed = True
+    else:
+        if job and hasattr(job, 'recuiter') and job.recuiter and job.recuiter.user == request.user:
+            allowed = True
+
+    if not allowed:
+        request.session['apply_message'] = 'You are not authorized to change application status for this job.'
+        return redirect('applied_condidate_list')
+
+    # Only accept POST requests to change status
+    if request.method != 'POST':
+        request.session['apply_message'] = 'Invalid request method.'
+        return redirect('applied_condidate_list')
+
+    action = request.POST.get('action', '').lower()
+    if action in ('accept', 'accepted'):
+        prev_status = application.status
+        application.status = 'Accepted'
+        application.status_changed_by = request.user
+        application.status_changed_at = timezone.now()
+        application.save()
+        # record history
+        try:
+            ApplyjobHistory.objects.create(
+                application=application,
+                previous_status=prev_status,
+                new_status=application.status,
+                changed_by=request.user,
+                changed_at=application.status_changed_at,
+                note='Accepted by recruiter'
+            )
+        except Exception:
+            pass
+
+        # Enqueue interview invitation generation + email via background worker if possible
+        try:
+            from .tasks import enqueue_send_interview_email
+            queued = enqueue_send_interview_email(application.id)
+            if queued:
+                request.session['apply_message'] = 'Application accepted and interview invitation queued for delivery.'
+            else:
+                request.session['apply_message'] = 'Application accepted but failed to queue interview invitation; attempted immediate send.'
+        except Exception:
+            # Fallback: attempt synchronous send
+            try:
+                from .tasks import send_interview_email
+                ok = send_interview_email(application.id)
+                if ok:
+                    request.session['apply_message'] = 'Application accepted and interview invitation sent.'
+                else:
+                    request.session['apply_message'] = 'Application accepted but failed to send interview invitation.'
+            except Exception:
+                request.session['apply_message'] = 'Application accepted but failed to generate/send interview invitation.'
+
+    elif action in ('reject', 'rejected'):
+        application.status = 'Rejected'
+        application.save()
+        # Optional: send rejection email
+        try:
+            to_email = [application.email] if application.email else []
+            if to_email:
+                subject = f'Application outcome for {job.title if job else "your application"}'
+                body = f'Dear {application.fname},\n\nWe regret to inform you that your application has not been successful. Thank you for your interest.\n\nBest regards,\nHR Team'
+                from_email = settings.DEFAULT_FROM_EMAIL or 'no-reply@example.com'
+                msg = EmailMessage(subject, body, from_email, to_email)
+                msg.send(fail_silently=True)
+        except Exception:
+            pass
+        request.session['apply_message'] = 'Application rejected.'
+
+    else:
+        request.session['apply_message'] = 'Unknown action.'
+
+    return redirect('applied_condidate_list')
+
+
+def latest_job(request):
+    job = Job.objects.all()
+    d = {'job': job}
+    return render(request, 'latest_job.html', d)
+
+
+from django.http import HttpResponse
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+
+
+def _generate_interview_letter_pdf(application):
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    margin = 20 * mm
+    x = margin
+    y = height - margin
+
+    # Header
+    c.setFont('Helvetica-Bold', 16)
+    c.drawString(x, y, 'Interview Invitation')
+    y -= 12 * mm
+
+    c.setFont('Helvetica', 11)
+    job = None
+    try:
+        job = Job.objects.get(id=application.num)
+    except Job.DoesNotExist:
+        job = None
+
+    c.drawString(x, y, f'Date: {date.today().strftime("%d %B %Y")}')
+    y -= 8 * mm
+
+    # Candidate details
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(x, y, f'To: {application.fname} {application.lname}')
+    y -= 6 * mm
+    c.setFont('Helvetica', 11)
+    c.drawString(x, y, f'Email: {application.email} | Mobile: {application.mobile}')
+    y -= 8 * mm
+
+    # Body
+    lines = []
+    lines.append(f'Dear {application.fname},')
+    lines.append('')
+    if job:
+        lines.append(f'We are pleased to invite you for an interview for the position of "{job.title}".')
+        # Include interview location (use job.location)
+        lines.append(f'Interview Location: {job.location or "TBD"}')
+        # Use job.start_date as suggested interview date if present
+        try:
+            if job.start_date:
+                lines.append(f'Suggested Interview Date: {job.start_date.strftime("%d %B %Y")}')
+        except Exception:
+            pass
+        lines.append('')
+    else:
+        lines.append('We are pleased to invite you for an interview. Details will be shared by the recruiter.')
+        lines.append('')
+
+    lines.append('Please arrive 10 minutes before your scheduled time and bring a copy of your resume and any relevant identification documents.')
+    lines.append('')
+    lines.append('If you need to reschedule, please contact our HR team.')
+    lines.append('')
+    lines.append('Best regards,')
+    lines.append('HR Team')
+    lines.append('')
+    lines.append('Best regards,')
+    lines.append('HR Team')
+
+    # Draw body text with wrapping
+    text_obj = c.beginText()
+    text_obj.setTextOrigin(x, y)
+    text_obj.setFont('Helvetica', 11)
+    max_width = width - 2 * margin
+
+    for para in lines:
+        # simple wrap
+        words = para.split(' ')
+        line = ''
+        for w in words:
+            test_line = (line + ' ' + w).strip()
+            if c.stringWidth(test_line, 'Helvetica', 11) <= max_width:
+                line = test_line
+            else:
+                text_obj.textLine(line)
+                line = w
+        if line:
+            text_obj.textLine(line)
+        text_obj.textLine('')
+
+    c.drawText(text_obj)
+
+    # Footer / signature placeholder
+    c.line(x, margin + 30, x + 60 * mm, margin + 30)
+    c.drawString(x, margin + 15, 'Authorized Signatory')
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+
+def download_joining_letter(request, id):
+    # Allow the applicant to download the interview invitation only if status is Accepted
+    try:
+        application = Applyjob.objects.get(id=id)
+    except Applyjob.DoesNotExist:
+        return redirect('user_home')
+
+    if application.status != 'Accepted':
+        # Not allowed
+        request.session['apply_message'] = 'Interview invitation is available only for accepted applications.'
+        return redirect('user_home')
+
+    # Ensure only the applicant (by email) or recruiter/admin can download
+    user = request.user
+    user_email = (user.email or user.username) if user.is_authenticated else ''
+    is_allowed = False
+    if user.is_authenticated and user_email and user_email == application.email:
+        is_allowed = True
+
+    # allow staff
+    if user.is_authenticated and user.is_staff:
+        is_allowed = True
+
+    # allow the job's recruiter
+    try:
+        job = Job.objects.get(id=application.num)
+        if job and hasattr(job, 'recuiter') and job.recuiter and user.is_authenticated and job.recuiter.user == user:
+            is_allowed = True
+    except Job.DoesNotExist:
+        pass
+
+    if not is_allowed:
+        request.session['apply_message'] = 'You are not authorized to download this interview invitation.'
+        return redirect('user_home')
+
+    pdf_buffer = _generate_interview_letter_pdf(application)
+    filename = f'InterviewLetter_{application.fname}_{application.lname}_{application.id}.pdf'
+    response = HttpResponse(pdf_buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def application_history(request, id):
+    # Show audit history for an application. Accessible to staff, the job's recruiter, or the applicant.
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+
+    try:
+        application = Applyjob.objects.get(id=id)
+    except Applyjob.DoesNotExist:
+        return redirect('applied_condidate_list')
+
+    # Authorization: staff, job's recruiter, or the applicant themselves
+    allowed = False
+    if request.user.is_staff:
+        allowed = True
+    else:
+        try:
+            job = Job.objects.get(id=application.num)
+        except Job.DoesNotExist:
+            job = None
+        if job and job.recuiter and job.recuiter.user == request.user:
+            allowed = True
+        # applicant by email
+        if application.email and (request.user.email == application.email or request.user.username == application.email):
+            allowed = True
+
+    if not allowed:
+        request.session['apply_message'] = 'Not authorized to view application history.'
+        return redirect('applied_condidate_list')
+
+    history_entries = application.history.all().order_by('-changed_at')
+    return render(request, 'applied_history.html', {'application': application, 'history': history_entries})
+
+
+def application_history_dashboard(request):
+    # Recruiter/admin dashboard listing history entries with simple filters and CSV export
+    if not request.user.is_authenticated:
+        return redirect('recuiter_login')
+
+    if not request.user.is_staff and not Recuiter.objects.filter(user=request.user).exists():
+        return redirect('recuiter_login')
+
+    qs = ApplyjobHistory.objects.select_related('application', 'changed_by').all().order_by('-changed_at')
+
+    # Filters: job id, application id, changed_by id, status
+    job_id = request.GET.get('job_id')
+    app_id = request.GET.get('application_id')
+    changed_by = request.GET.get('changed_by')
+    status = request.GET.get('status')
+
+    if job_id:
+        qs = qs.filter(application__num=job_id)
+    if app_id:
+        qs = qs.filter(application__id=app_id)
+    if changed_by:
+        qs = qs.filter(changed_by__id=changed_by)
+    if status:
+        qs = qs.filter(new_status__iexact=status)
+
+    # CSV export
+    if request.GET.get('export') == 'csv':
+        import csv
+        from django.http import HttpResponse
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="application_history.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Application ID', 'Job ID', 'Previous Status', 'New Status', 'Changed By', 'Changed At', 'Note'])
+        for h in qs:
+            writer.writerow([h.application.id, h.application.num, h.previous_status, h.new_status, (h.changed_by.get_full_name() if h.changed_by else ''), (h.changed_at.strftime('%Y-%m-%d %H:%M') if h.changed_at else ''), h.note or ''])
+        return response
+
+    # Pagination simple (manual)
+    page = int(request.GET.get('page', '1') or '1')
+    per_page = 25
+    start = (page - 1) * per_page
+    end = start + per_page
+    total = qs.count()
+    entries = qs[start:end]
+
+    return render(request, 'applied_history_dashboard.html', {'entries': entries, 'total': total, 'page': page, 'per_page': per_page})
+
+
+def delete_job(request, id):
+    data = Job.objects.get(id=id)
+    data.delete()
+    return redirect('job_list')
+
+
+def delete_condidate(request, id):
+    data = Applyjob.objects.get(id=id)
+    data.delete()
+    return redirect('applied_condidate_list')
+

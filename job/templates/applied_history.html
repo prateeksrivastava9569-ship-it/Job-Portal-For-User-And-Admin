@@ -1,0 +1,60 @@
+{% if is_recruiter %}
+    {% include 'recuiter_navigation.html' %}
+{% else %}
+    {% include 'user_navigation.html' %}
+{% endif %}
+
+<div class="container mt-4">
+    <h3>Application History for {{ application.fname }} {{ application.lname }}</h3>
+    <p><strong>Application ID:</strong> {{ application.id }} | <strong>Job ID:</strong> {{ application.num }} | <strong>Current Status:</strong> {{ application.status }}</p>
+
+    {% if latest_note %}
+        <div class="alert alert-info border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #edf7ff 0%, #e9f5ff 100%); border-left:4px solid #0d6efd !important;">
+            <div class="small text-uppercase mb-2" style="letter-spacing:0.08em; font-weight:700; color:#0d6efd;">Recruiter Message</div>
+            <div style="white-space:pre-line; font-size:1.02rem; line-height:1.7; color:#1f2d3d;">{{ latest_note.note }}</div>
+            {% if latest_note.changed_by %}
+                <div class="small text-muted mt-2 d-flex align-items-center">
+                    <span class="mr-2">●</span>
+                    <span>From {{ latest_note.changed_by.get_full_name|default:latest_note.changed_by.username }}</span>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <table class="table table-bordered mt-3">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Previous Status</th>
+                <th>New Status</th>
+                <th>Changed By</th>
+                <th>Changed At</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in history %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ h.previous_status|default:'-' }}</td>
+                <td>{{ h.new_status|default:'-' }}</td>
+                <td>{% if h.changed_by %}{{ h.changed_by.first_name }} {{ h.changed_by.last_name }}{% else %}-{% endif %}</td>
+                <td>{% if h.changed_at %}{{ h.changed_at|date:"d M Y H:i" }}{% else %}-{% endif %}</td>
+                <td>{{ h.note|default:'-' }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6">No history recorded for this application.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if is_recruiter %}
+        <a href="{% url 'applied_condidate_list' %}" class="btn btn-secondary">Back to Applicants</a>
+    {% else %}
+        <a href="{% url 'my_applied_jobs' %}" class="btn btn-secondary">Back to My Applications</a>
+    {% endif %}
+</div>
+
+{% include 'footer.html' %}

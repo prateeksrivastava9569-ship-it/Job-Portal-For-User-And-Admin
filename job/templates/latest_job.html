@@ -1,0 +1,49 @@
+{% include 'navigation.html' %}
+<style>
+tr{text-align:center}
+</style>
+
+<marquee style="font-family: 'Monotype Corsiva'; font-size:25px; color:darkcyan; background-color:black; font-weight:bold; margin-top:1%">
+        Manage Jobs Details
+</marquee>
+<hr>
+
+<div class="container-fluid">
+<table class="table table-hover " id="example">
+    <thead>
+    <tr style="background-color: lightgreen; color : black">
+        <th>S. No.</th>
+        <th>Job Title</th>
+        <th>Last Date</th>
+        <th>Experience</th>
+        <th>Location</th>
+        <th>Action</th>
+    </tr>
+    </thead>
+    <tbody style="background-color:yellow; color: black">
+    {% for i in job %}
+    <tr>
+        <td>{{forloop.counter}}</td>
+        <td>{{i.title}}</td>
+        <td>{{i.end_date}}</td>
+        <td>{{i.experience}} Year</td>
+        <td>{{i.location}}</td>
+
+        <td>
+            {% if i.id in applied_job_ids %}
+                {% for app in applied_jobs_list %}
+                    {% if app.id == i.id %}
+                        <button class="btn btn-outline-secondary" disabled aria-disabled="true">Applied on {{ app.label }}</button>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <a href="{% url 'user_login' %}" class="btn btn-primary">Apply Now</a>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% include 'footer.html' %}
+

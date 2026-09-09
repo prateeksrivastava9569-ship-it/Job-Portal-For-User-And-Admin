@@ -1,0 +1,169 @@
+<html>
+<head>
+    {% load static %}
+    <title>Job Portal</title>
+    <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+ <script src=" https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+.nav-link{
+    color:white !important;
+    margin-right: 4px
+    }
+
+.nav-link:hover{
+    color:yellow !important;
+    font-weight: bold;
+    background-color:red;
+    border-radius:10px;
+    }
+
+.navbar-brand:hover{
+    color:yellow !important;
+
+    }
+
+.back-arrow-btn {
+    position: fixed;
+    left: 18px;
+    top: 18px;
+    z-index: 9999;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0d6efd, #0056b3);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    text-decoration: none;
+}
+
+.back-arrow-btn:hover {
+    color: white;
+    text-decoration: none;
+    transform: scale(1.05);
+}
+</style>
+<script>
+    function goBackSafe() {
+        var currentPath = window.location.pathname || '/';
+        var isHomePage = currentPath === '/' || currentPath.endsWith('/home') || currentPath.endsWith('/index') || currentPath.endsWith('/');
+        if (isHomePage) {
+            return;
+        }
+        var referrer = document.referrer || '';
+        var sameSite = referrer && referrer.indexOf(window.location.origin) === 0;
+        var referrerPath = '';
+        try {
+            referrerPath = sameSite ? new URL(referrer).pathname : '';
+        } catch (e) {
+            referrerPath = '';
+        }
+        if (sameSite && history.length > 1) {
+            history.back();
+            return;
+        }
+        window.location.href = '{% url "admin_home" %}';
+    }
+</script>
+
+    <!--Data table start -->
+    <script>
+    $(document).ready(function() {
+    $('#example').DataTable( {
+        dom: 'Bfrtip',
+        buttons: [
+            'copyHtml5',
+            'excelHtml5',
+            'csvHtml5',
+            'pdfHtml5'
+        ]
+    } );
+} );
+    </script>
+<script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<script src = "https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
+<script src=" https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js"></script>
+<script src=" https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+<script src=" https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+<script src=" https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+<script src=" https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js"></script>
+
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.23/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/1.6.5/css/buttons.dataTables.min.css">
+    <!--Data table ends -->
+
+</head>
+<body>
+<a href="javascript:void(0)" class="back-arrow-btn" onclick="goBackSafe(); return false;" title="Back">
+    <i class="fa fa-arrow-left"></i>
+</a>
+
+<div class="container">
+    <div class="row">
+        <div class="col-sm-3 ">
+                  <img src="{% static 'images/b.jpg' %}" width="180px" height="150px">
+        </div>
+
+        <div class="col-sm-6 mt-5 text-center">
+                  <span style="font-weight: bold; font-size:30px">
+                        <span style="color:red">Online Job</span>
+                        <span style="color:green">Portal System</span>
+                  </span>
+        </div>
+
+        <div class="col-sm-3 mt-5" style="padding-left:10%">
+            <span style="font-weight:bold ; font-size:30px">
+                <span><i class="fa fa-twitter pl-2"></i></span>
+                <span><i class="fa fa-linkedin pl-2"></i></span>
+                <span><i class="fa fa-instagram pl-2"></i></span>
+            </span>
+        </div>
+
+    </div>
+</div>
+
+<nav class="navbar navbar-expand-sm" style="background-color:blue">
+    <a class="navbar-brand text-white pl-5 font-weight-bold" style="font-family:'Mv Boli'; font-size:30px">Job Portal</a>
+
+<ul class="navbar-nav">
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'admin_home' %}" style="margin-left:280px"><i class="fa fa-home mr-1"></i>Home</a>
+    </li>
+
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown"><i class="fa fa-users mr-1"></i>Recruiters</a>
+    <div class="dropdown-menu">
+        <a class="dropdown-item" href="{% url 'recuiter_pending' %}">Pending</a>
+        <a class="dropdown-item" href="{% url 'recuiter_accepted' %}">Accepted</a>
+        <a class="dropdown-item" href="{% url 'recuiter_rejected' %}">Rejected</a>
+        <a class="dropdown-item" href="{% url 'recuiter_all' %}">All Recruiters</a>
+    </div>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'view_users' %}"><i class="fa fa-user-o mr-1"></i>View Users</a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'change_passwordadmin' %}"><i class="fa fa-user-circle mr-1"></i>Change Password</a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'logout' %}"><i class="fa fa-sign-out mr-1"></i>Logout</a>
+    </li>
+</ul>
+
+</nav>
+
+</body>
+</html>

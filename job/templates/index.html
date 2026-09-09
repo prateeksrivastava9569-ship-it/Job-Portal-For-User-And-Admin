@@ -1,0 +1,96 @@
+{% load static %}
+
+{% block body %}
+
+{% include 'navigation.html' %}
+
+<style>
+    .container{
+    max-width: 90%
+    }
+
+    .content{
+    text-align:center;
+    position:absolute;
+    bottom:0;
+    background:rgba(0,0,0,0.5);
+    color:white;
+    height:30px;
+    width:91%
+    }
+</style>
+
+<div class="container-fliud" style="margin-top:1%">
+    <img src="{% static 'images/e.jpg' %}" style="height:500px;width:100%">
+</div>
+
+<div class="container" style="background-color:black; height:570px; margin-top:2%">
+    <h1 class="text-center text-white">-----------|   OUR PLACED STUDENTS    |-----------</h1>
+
+    <div class="row mt-3">
+        <div class="col-md-3">
+            <img src="{% static 'images/b.jpg' %}" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Facebook</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="{% static 'images/b.jpg' %}" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Wipro</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="{% static 'images/c.jpg' %}" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>TCS</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="{% static 'images/d.jpg' %}" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>HCL</p>
+            </div>
+        </div>
+        </div>
+
+     <div class="row mt-3">
+        <div class="col-md-3">
+            <img src="{% static 'images/e.jpg' %}" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Google</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="{% static 'images/f.png' %}" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Cedcoss</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="{% static 'images/g.jpg' %}" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Infosys</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="{% static 'images/h.png' %}" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>DELL</p>
+            </div>
+        </div>
+        </div>
+
+    </div>
+
+
+</div>
+{% include 'footer.html' %}
+
+{% endblock %}

@@ -1,0 +1,308 @@
+
+
+
+
+<html>
+<head>
+    
+    <title>Job Portal</title>
+ <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+body {
+    background-color: #f5f7fb;
+}
+.nav-link {
+    color: white !important;
+    margin-right: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px !important;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.nav-link i,
+.nav-link .fa,
+.navbar-brand,
+.navbar-brand:hover {
+    color: white !important;
+}
+
+.nav-link:hover {
+    color: #fff !important;
+    font-weight: 600;
+    background: rgba(255,255,255,0.18);
+    border-radius: 10px;
+}
+
+.navbar-brand:hover {
+    color: #fff !important;
+}
+
+.back-arrow-btn {
+    position: fixed;
+    left: 18px;
+    top: 18px;
+    z-index: 9999;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0d6efd, #0056b3);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    text-decoration: none;
+}
+
+.back-arrow-btn:hover {
+    color: white;
+    text-decoration: none;
+    transform: scale(1.05);
+}
+
+.main-header {
+    background: linear-gradient(180deg, #f9fbff 0%, #edf4ff 100%);
+    padding: 18px 0 12px;
+    border-bottom: 1px solid #e4ebf8;
+}
+
+.site-title {
+    font-weight: 800;
+    font-size: 30px;
+    letter-spacing: 0.5px;
+}
+
+.site-title .red { color: #e53935; }
+.site-title .green { color: #198754; }
+
+.top-social {
+    color: #0d6efd;
+    font-size: 24px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.navbar-custom {
+    background: linear-gradient(90deg, #0d6efd, #1d4ed8);
+    box-shadow: 0 8px 20px rgba(13,110,253,0.12);
+}
+</style>
+<script>
+    function goBackSafe() {
+        var currentPath = window.location.pathname || '/';
+        var homePaths = ['/', '/index', '/home'];
+        var isHomePage = homePaths.indexOf(currentPath) !== -1 || currentPath.endsWith('/index') || currentPath.endsWith('/');
+
+        if (isHomePage) {
+            return;
+        }
+
+        var referrer = document.referrer || '';
+        var sameSite = referrer && referrer.indexOf(window.location.origin) === 0;
+        var referrerPath = '';
+        try {
+            referrerPath = sameSite ? new URL(referrer).pathname : '';
+        } catch (e) {
+            referrerPath = '';
+        }
+        var blocked = ['/verify_otp', '/forgot_password', '/reset_password'].indexOf(referrerPath) !== -1;
+        if (sameSite && !blocked && history.length > 1) {
+            history.back();
+            return;
+        }
+        window.location.href = "/";
+    }
+
+    document.addEventListener('pageshow', function () {
+        var forms = document.querySelectorAll('form');
+        forms.forEach(function (form) {
+            if (form && form.dataset.resetOnBack === 'true') {
+                form.reset();
+            }
+        });
+        var inputs = document.querySelectorAll('input, textarea, select');
+        inputs.forEach(function (input) {
+            if (input && input.type !== 'hidden' && input.dataset.clearOnBack === 'true') {
+                input.value = '';
+            }
+        });
+    });
+</script>
+</head>
+<body>
+<a href="javascript:void(0)" class="back-arrow-btn" onclick="goBackSafe(); return false;" title="Back">
+    <i class="fa fa-arrow-left"></i>
+</a>
+
+<div class="container main-header">
+    <div class="row align-items-center">
+        <div class="col-sm-3" style="display:flex; align-items:center; justify-content:flex-start; gap:12px;">
+            <img src="/static/images/college_logo.png" width="120px" height="120px" style="object-fit:contain; background:transparent; border-radius:50%; box-shadow:0 0 15px rgba(0,0,0,0.08);">
+            <img src="/static/images/job_portal_logo.png" width="120px" height="120px" style="object-fit:contain; border-radius:18px; box-shadow:0 0 12px rgba(0,0,0,0.12); background:transparent;">
+        </div>
+
+        <div class="col-sm-6 text-center">
+            <span class="site-title">
+                <span class="red">Online Job</span>
+                <span class="green">Portal System</span>
+            </span>
+        </div>
+
+        <div class="col-sm-3 text-center">
+            <div class="top-social">
+                <span><i class="fa fa-twitter"></i></span>
+                <span><i class="fa fa-linkedin"></i></span>
+                <span><i class="fa fa-instagram"></i></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<nav class="navbar navbar-expand-sm navbar-custom">
+    <a class="navbar-brand text-white pl-5 font-weight-bold" style="font-family:'Mv Boli'; font-size:30px">Job Portal</a>
+
+    <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/" style="margin-left:280px"><i class="fa fa-home mr-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/latest_job"><i class="fa fa-users mr-1"></i>Latest Jobs</a></li>
+        <li class="nav-item"><a class="nav-link" href="/user_login"><i class="fa fa-user-plus mr-1"></i>User Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="/recuiter_login"><i class="fa fa-sign-language mr-1"></i>Recruiter Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="/admin_login"><i class="fa fa-sign-in mr-1"></i>Admin Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="/contact_us"><i class="fa fa-phone mr-1"></i>Contact Us</a></li>
+    </ul>
+</nav>
+
+</body>
+</html>
+
+<style>
+    .container{
+    max-width: 90%
+    }
+
+    .content{
+    text-align:center;
+    position:absolute;
+    bottom:0;
+    background:rgba(0,0,0,0.5);
+    color:white;
+    height:30px;
+    width:91%
+    }
+</style>
+
+<div class="container-fliud" style="margin-top:1%">
+    <img src="/static/images/e.jpg" style="height:500px;width:100%">
+</div>
+
+<div class="container" style="background-color:black; height:570px; margin-top:2%">
+    <h1 class="text-center text-white">-----------|   OUR PLACED STUDENTS    |-----------</h1>
+
+    <div class="row mt-3">
+        <div class="col-md-3">
+            <img src="/static/images/b.jpg" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Facebook</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="/static/images/b.jpg" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Wipro</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="/static/images/c.jpg" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>TCS</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="/static/images/d.jpg" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>HCL</p>
+            </div>
+        </div>
+        </div>
+
+     <div class="row mt-3">
+        <div class="col-md-3">
+            <img src="/static/images/e.jpg" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Google</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="/static/images/f.png" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Cedcoss</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="/static/images/g.jpg" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>Infosys</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <img src="/static/images/h.png" style="width:100%; margin-top:5%; height:200px ; border-radius:50%">
+            <div class="content">
+                <p>DELL</p>
+            </div>
+        </div>
+        </div>
+
+    </div>
+
+
+</div>
+
+
+<div class="mt-3" style="background: linear-gradient(180deg, #111827 0%, #0b1220 100%); width:100%; min-height:290px; color:white; padding: 30px 0;">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4 mt-3">
+                <h3 class="text-white mb-3">Contact Information</h3>
+                <p style="color:#f3f4f6; font-size: 18px"><i class="fa fa-map-marker text-danger mr-2"></i> SRMCM, Lucknow</p>
+                <p style="color:#f3f4f6; font-size: 18px"><i class="fa fa-envelope text-danger mr-2"></i> jobportal@usertech.in</p>
+                <p style="color:#f3f4f6; font-size: 18px"><i class="fa fa-globe text-danger mr-2"></i> www.jobportaluser.in</p>
+            </div>
+
+            <div class="col-md-4 mt-3">
+                <h3 class="text-white mb-3">Online Placement</h3>
+                <p style="color:#dbeafe; font-size:16px; line-height:1.8;">Our platform connects students with career opportunities through skill-based matching, verified job listings, and a streamlined application process for real opportunities.</p>
+            </div>
+
+            <div class="col-md-4 mt-3">
+                <h3 class="text-white mb-3">Newsletter</h3>
+                <p style="color:#dbeafe; font-size:16px;">Get updates on new job openings and placement alerts.</p>
+                <form method="post" class="form-inline">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="qFMUM55jXwvgdh5TjIez8JrEZ28iVcb9B411HUKg6dtCjdu4n4cmq2RdxnckvAaL">
+                    <input type="email" name="emailid" placeholder="Email Id" required class="form-control mr-2" style="min-width: 220px;">
+                    <input type="submit" value="Send" class="btn btn-primary">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+

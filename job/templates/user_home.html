@@ -1,0 +1,128 @@
+{% load static %}
+
+{% block body %}
+
+{% include 'user_navigation.html' %}
+
+<style>
+    .main{
+    border:2px solid blue;
+    height:450px;
+    background-image:url({% static 'images/g.jpg' %});
+    background-size:100% 100%;
+    animation: demo 20s infinite;
+    }
+    @keyframes demo{
+    20%{background-image:url({% static 'images/a.jpg' %});}
+    40%{background-image:url({% static 'images/b.jpg' %});}
+    60%{background-image:url({% static 'images/c.jpg' %});}
+    80%{background-image:url({% static 'images/e.jpg' %});}
+    100%{background-image:url({% static 'images/d.jpg' %});}
+    }
+    .recommended-card {
+        border-radius: 18px;
+        box-shadow: 0 12px 28px rgba(13, 110, 253, 0.10);
+        border: 1px solid #dfe8ff;
+        background: linear-gradient(180deg, #ffffff, #f3f8ff);
+        overflow: hidden;
+    }
+    .recommended-card .card-header {
+        background: linear-gradient(135deg, #0d6efd, #3f86ff);
+        color: white;
+        border-radius: 0;
+        padding: 16px 22px;
+    }
+    .job-badge {
+        background: #e8f2ff;
+        color: #0d57c8;
+        font-weight: 600;
+        padding: 6px 10px;
+        border-radius: 12px;
+    }
+    .recommended-job-card {
+        border-radius: 16px;
+        border: 1px solid #e7ebf3;
+        box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .recommended-job-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 22px rgba(0,0,0,0.10);
+    }
+</style>
+
+<div class="container-fluid main">
+
+</div>
+
+{% if eligibility_message %}
+<script>
+    alert("{{ eligibility_message }}");
+</script>
+{% endif %}
+{% if apply_message %}
+<script>
+    alert("{{ apply_message }}");
+</script>
+{% endif %}
+
+<div class="container my-4" id="recommended-jobs">
+    <div class="card recommended-card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h4 class="mb-0"><i class="fa fa-lightbulb-o mr-2"></i>Recommended Jobs For You</h4>
+            <span class="badge badge-light px-3 py-2">AI Match</span>
+        </div>
+        <div class="card-body">
+            {% if recommended_jobs %}
+                <div class="row">
+                    {% for job in recommended_jobs %}
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100 border-0 recommended-job-card">
+                                <div class="card-body">
+                                    {% if job.id in applied_job_ids %}
+                                        {% for app in applied_jobs_list %}
+                                            {% if app.id == job.id %}
+                                                <div class="mb-2">
+                                                    <span class="job-badge" style="background:#e6f9ee; color:#1f7a3a;"><i class="fa fa-check-circle mr-1"></i>Applied on {{ app.label }}</span>
+                                                </div>
+                                                <h5 class="card-title font-weight-bold">{{ job.title }}</h5>
+                                                <p class="text-muted mb-2"><i class="fa fa-map-marker mr-1"></i>{{ job.location }}</p>
+                                                <p class="mb-1"><strong>Experience:</strong> {{ job.experience }}</p>
+                                                <p class="mb-1"><strong>Skills:</strong> {{ job.skills }}</p>
+                                                <p class="mb-3"><strong>Salary:</strong> {{ job.salary }}</p>
+                                                <div class="d-flex gap-2">
+                                                    <button class="btn btn-outline-secondary btn-sm" disabled aria-disabled="true"><i class="fa fa-check mr-1"></i>Applied</button>
+                                                    <a href="{% url 'full_job_detail' job.id %}" class="btn btn-primary btn-sm"><i class="fa fa-eye mr-1"></i>View Details</a>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="mb-2">
+                                            <span class="job-badge"><i class="fa fa-star mr-1"></i>Recommended</span>
+                                        </div>
+                                        <h5 class="card-title font-weight-bold">{{ job.title }}</h5>
+                                        <p class="text-muted mb-2"><i class="fa fa-map-marker mr-1"></i>{{ job.location }}</p>
+                                        <p class="mb-1"><strong>Experience:</strong> {{ job.experience }}</p>
+                                        <p class="mb-1"><strong>Skills:</strong> {{ job.skills }}</p>
+                                        <p class="mb-3"><strong>Salary:</strong> {{ job.salary }}</p>
+                                        <div class="d-flex gap-2">
+                                            <a href="{% url 'apply_now' job.id %}" class="btn btn-success btn-sm"><i class="fa fa-check mr-1"></i>Apply Now</a>
+                                            <a href="{% url 'full_job_detail' job.id %}" class="btn btn-primary btn-sm"><i class="fa fa-eye mr-1"></i>View Details</a>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    <i class="fa fa-info-circle mr-2"></i>No jobs are recommended right now. Please explore the latest jobs list.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% include 'footer.html' %}
+{% endblock %}

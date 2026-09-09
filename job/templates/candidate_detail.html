@@ -1,0 +1,101 @@
+{% include 'recuiter_navigation.html' %}
+
+<div class="container py-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Candidate Details</h4>
+            <a href="{% url 'applied_condidate_list' %}" class="btn btn-light btn-sm">Back</a>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 text-center mb-3 mb-md-0">
+                    {% if application.image %}
+                        <img src="{{ application.image.url }}" class="img-thumbnail" style="max-width:220px; max-height:220px; object-fit:cover; border-radius:16px;">
+                    {% else %}
+                        <div class="border rounded p-4 text-muted">No profile image</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-8">
+                    <h4>{{ application.fname }} {{ application.lname }}</h4>
+                    <table class="table table-borderless">
+                        <tr>
+                            <th style="width:170px;">Email</th>
+                            <td>{{ application.email|default:'-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Mobile</th>
+                            <td>{{ application.mobile|default:'-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Qualification</th>
+                            <td>{{ application.qualification|default:'-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Experience</th>
+                            <td>{{ application.experience|default:'0' }} Years</td>
+                        </tr>
+                        <tr>
+                            <th>Gender</th>
+                            <td>{{ application.gender|default:'-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Applied For</th>
+                            <td>{% if job %}{{ job.title }}{% else %}Job not found{% endif %}</td>
+                        </tr>
+                        <tr>
+                            <th>Status</th>
+                            <td>
+                                {% if application.status == 'Accepted' %}
+                                    <span class="badge badge-success">Accepted</span>
+                                {% elif application.status == 'Rejected' %}
+                                    <span class="badge badge-danger">Rejected</span>
+                                {% elif application.status == 'Shortlisted' %}
+                                    <span class="badge badge-primary">Shortlisted</span>
+                                {% else %}
+                                    <span class="badge badge-warning text-dark">Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex flex-wrap gap-2">
+                {% if resume %}
+                    <a href="{% url 'download_resume' application.id %}" class="btn btn-primary">Download Resume</a>
+                {% else %}
+                    <button class="btn btn-secondary" disabled>No Resume Available</button>
+                {% endif %}
+                <a href="mailto:{{ application.email|default:'' }}" class="btn btn-outline-dark">Send Message</a>
+                <a href="{% url 'application_history' application.id %}" class="btn btn-info text-white">History</a>
+                {% if application.status == 'Accepted' %}
+                    <a href="{% url 'download_joining_letter' application.id %}" class="btn btn-outline-success">Interview Invite</a>
+                {% endif %}
+            </div>
+
+            <div class="mt-4 border rounded p-3 bg-light">
+                <h5 class="mb-3">Quick status update</h5>
+                <form method="post" action="{% url 'change_application_status' application.id %}">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="statusNote">Note</label>
+                        <textarea id="statusNote" name="note" class="form-control" rows="3" placeholder="Add recruiter note or reason..."></textarea>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        {% if application.status == 'Accepted' %}
+                            <button class="btn btn-success" disabled aria-disabled="true">Accepted</button>
+                            <button class="btn btn-primary" disabled aria-disabled="true">Shortlist</button>
+                            <button class="btn btn-danger" disabled aria-disabled="true">Reject</button>
+                        {% else %}
+                            <button type="submit" name="action" value="accept" class="btn btn-success">Accept</button>
+                            <button type="submit" name="action" value="shortlist" class="btn btn-primary">Shortlist</button>
+                            <button type="submit" name="action" value="reject" class="btn btn-danger">Reject</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'footer.html' %}

@@ -1,0 +1,131 @@
+{% include 'user_navigation.html' %}
+
+
+<marquee style="font-family: 'Monotype Corsiva'; font-size:25px; color:darkcyan; background-color:black; font-weight:bold; margin-top:1%">
+    Apply Now
+</marquee>
+<hr>
+{% if eligibility_message %}
+<div class="container mt-4">
+    <div class="alert alert-warning"><strong>{{ eligibility_message }}</strong></div>
+</div>
+{% endif %}
+
+<script>
+    function checkpass() {
+        return true;
+    }
+</script>
+
+<form class="container mt-5" onsubmit="return checkpass();" name="signup" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="form-row">
+        <div class="form-group col-md-6" >
+            <label>First Name</label>
+            <input type="text" class="form-control" value="{{user.first_name}}" name="fname" readonly>
+        </div>
+
+        <div class="form-group col-md-6" >
+            <label>Last Name</label>
+            <input type="text" class="form-control" value="{{user.last_name}}" name="lname" readonly>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-12" >
+            <label>Contact Number:</label>
+            <input type="text" class="form-control" name="contact" value="{{ student.mobile|default:'' }}" placeholder="Enter Phone Number" required>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-12" >
+            <label>Email ID:</label>
+            <input type="text" class="form-control" value="{{user.username}}" name="email" readonly>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-6" >
+            <label>Experience:</label>
+            <input type="number" class="form-control" name="exp" placeholder="Total Experience in years" min="0" value="0">
+        </div>
+
+        <div class="form-group col-md-6" >
+            <label>Course / Qualification:</label>
+            <select class="form-control" name="que" required>
+                <option value="">Select a course</option>
+                <option value="B.Tech Computer Science" {% if student and student.qualification == 'B.Tech Computer Science' %}selected{% endif %}>B.Tech Computer Science</option>
+                <option value="B.Tech Information Technology" {% if student and student.qualification == 'B.Tech Information Technology' %}selected{% endif %}>B.Tech Information Technology</option>
+                <option value="B.Tech Electronics & Communication" {% if student and student.qualification == 'B.Tech Electronics & Communication' %}selected{% endif %}>B.Tech Electronics & Communication</option>
+                <option value="B.Tech Mechanical" {% if student and student.qualification == 'B.Tech Mechanical' %}selected{% endif %}>B.Tech Mechanical</option>
+                <option value="B.Tech Civil" {% if student and student.qualification == 'B.Tech Civil' %}selected{% endif %}>B.Tech Civil</option>
+                <option value="B.E. Computer Science" {% if student and student.qualification == 'B.E. Computer Science' %}selected{% endif %}>B.E. Computer Science</option>
+                <option value="BCA" {% if student and student.qualification == 'BCA' %}selected{% endif %}>BCA</option>
+                <option value="MCA" {% if student and student.qualification == 'MCA' %}selected{% endif %}>MCA</option>
+                <option value="M.Tech" {% if student and student.qualification == 'M.Tech' %}selected{% endif %}>M.Tech</option>
+                <option value="Diploma in Engineering" {% if student and student.qualification == 'Diploma in Engineering' %}selected{% endif %}>Diploma in Engineering</option>
+                <option value="B.Sc Computer Science" {% if student and student.qualification == 'B.Sc Computer Science' %}selected{% endif %}>B.Sc Computer Science</option>
+                <option value="B.Sc IT" {% if student and student.qualification == 'B.Sc IT' %}selected{% endif %}>B.Sc IT</option>
+                <option value="Data Science" {% if student and student.qualification == 'Data Science' %}selected{% endif %}>Data Science</option>
+                <option value="Cyber Security" {% if student and student.qualification == 'Cyber Security' %}selected{% endif %}>Cyber Security</option>
+                <option value="Cloud Computing" {% if student and student.qualification == 'Cloud Computing' %}selected{% endif %}>Cloud Computing</option>
+                <option value="Web Development" {% if student and student.qualification == 'Web Development' %}selected{% endif %}>Web Development</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-6" >
+            <label>Gender</label>
+            <div style="border:1px solid lightgrey ; padding:6px ; border-radius:6px">
+            <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="customRadioInLine1" name="gender" class="custom-control-input" value="Male" {% if student and student.gender == 'Male' %}checked{% endif %}>
+                <label class="custom-control-label" for="customRadioInLine1">Male</label>
+            </div>
+            <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="customRadioInLine2" name="gender" class="custom-control-input" value="Female" {% if student and student.gender == 'Female' %}checked{% endif %}>
+                <label class="custom-control-label" for="customRadioInLine2">Female</label>
+            </div>
+                </div>
+        </div>
+
+        <div class="form-group col-md-6" >
+            <label>Profile Picture:</label>
+            <input type="file" class="form-control" name="image" accept="image/*">
+            {% if student and student.image %}
+            <small class="text-muted d-block mt-2">Leave blank to use your saved profile photo.</small>
+            {% endif %}
+        </div>
+
+        <div class="form-group col-md-6">
+            <label>Upload Resume (PDF or DOCX):</label>
+            <input type="file" class="form-control" name="resume" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            <small class="text-muted d-block mt-2">Your resume will be visible to the recruiter for this job.</small>
+        </div>
+    </div>
+<input type="submit" value="Apply Now" class="btn btn-primary my-3" style="width:200px">
+</form>
+
+
+{% if error == "no" %}
+<script>
+    alert("Applyed Successfully")
+    window.location = ('{% url 'view_job_user' %}')
+</script>
+{% endif %}
+
+{% if error == "yes" %}
+<script>
+    alert("Somthing Wrong, Try Again...")
+</script>
+{% endif %}
+
+{% if error == "not_eligible" or eligibility_message %}
+<script>
+    alert("You are not eligible for this job.");
+</script>
+{% endif %}
+
+{% include 'footer.html' %}

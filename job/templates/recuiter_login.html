@@ -1,0 +1,112 @@
+﻿{% load static %}
+
+{% block body %}
+
+{% include 'navigation.html' %}
+<script>
+    function togglePassword(fieldId, iconId) {
+        var field = document.getElementById(fieldId);
+        var icon = document.getElementById(iconId);
+        if (!field || !icon) return;
+        if (field.type === 'password') {
+            field.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            field.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+</script>
+
+<style>
+    .auth-card {
+        background: linear-gradient(180deg, #ffffff 0%, #f4f8ff 100%);
+        border: 1px solid #dfe8ff;
+        border-radius: 22px;
+        box-shadow: 0 12px 28px rgba(13,110,253,0.10);
+        max-width: 620px;
+        margin: 40px auto 30px;
+        padding: 30px 28px;
+    }
+    .auth-heading {
+        text-align: center;
+        font-weight: 800;
+        color: #0d6efd;
+        margin-bottom: 24px;
+        letter-spacing: 0.5px;
+    }
+    .auth-btn {
+        width: 100%;
+        border-radius: 12px;
+        font-weight: 700;
+        padding: 12px 18px;
+        margin-top: 15px;
+    }
+    .secondary-btn {
+        background: #eef4ff;
+        color: #0d6efd;
+        border: 1px solid #cfe0ff;
+    }
+    .auth-link {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+    .form-control {
+        border-radius: 10px;
+        padding: 12px 14px;
+        border: 1px solid #dfe8f8;
+    }
+</style>
+
+<div class="container">
+    <div class="auth-card">
+        <h2 class="auth-heading">Recruiter Login</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label><b>Email ID:</b></label>
+                <input type="text" class="form-control" name="uname" placeholder="Enter Email ID" required>
+            </div>
+            <div class="form-group">
+                <label><b>Password:</b></label>
+                <div class="input-group">
+                    <input type="password" id="recruiterPwd" class="form-control" name="pwd" placeholder="Enter Password" required>
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('recruiterPwd', 'recruiterPwdEye')">
+                            <i id="recruiterPwdEye" class="fa fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="text-right mt-2">
+                <a href="{% url 'forgot_password' %}" class="auth-link">Forgot Password?</a>
+            </div>
+            <input type="submit" class="btn btn-primary auth-btn">
+            <a href="{% url 'recuiter_signup' %}" class="btn secondary-btn auth-btn">Create an Account</a>
+        </form>
+    </div>
+</div>
+{% include 'footer.html' %}
+
+{% if error == "no" %}
+<script>
+    alert("Login Successfully")
+    window.location = ('{% url 'recuiter_home' %}')
+</script>
+{% endif %}
+
+{% if error == "yes" %}
+<script>
+    alert("Invalid Login Details, Try Agail...")
+</script>
+{% endif %}
+
+{% if error == "not" %}
+<script>
+    alert("Login Status is Pending")
+</script>
+{% endif %}
+
+{% endblock %}

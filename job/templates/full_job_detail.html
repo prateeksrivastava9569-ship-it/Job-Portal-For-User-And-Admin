@@ -1,0 +1,104 @@
+{% include 'user_navigation.html' %}
+<style>
+    .abc{
+    border:2px solid #dfe8ff;
+    padding: 30px;
+    border-radius:24px;
+    background: linear-gradient(180deg, #ffffff 0%, #f2f7ff 100%);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+    }
+    .box{margin-bottom:30px;}
+    .box .col-3 {
+        background: linear-gradient(135deg, #dfeeff, #cfe5ff);
+        border-radius:12px;
+        padding: 18px 12px;
+        font-weight: 600;
+        color: #0a3d8f;
+    }
+    .box2{
+    font-size: 24px;
+    font-weight: 600;
+    color: #1f2d3d;
+    }
+    .detail-action-btn {
+        margin-top:2%;
+        min-width: 150px;
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 14px 20px;
+    }
+</style>
+<marquee behavior="alternate" style="font-family: 'Monotype Corsiva'; font-size:25px; color:darkcyan; background-color:black; font-weight:bold; margin-top:1%">
+    Full Job Detail
+</marquee>
+<form class="container mt-5 abc" method="post" >
+    {% csrf_token %}
+    <div class="row box">
+        <div class="col col-3" style="background:cyan;border-radius:10px;">
+            <label ><b>Salary:</b></label>
+        </div>
+        <div class="col col-1"></div>
+        <div class="col col-8">
+            <label class="box2">{{data.salary}} per Month</label>
+        </div>
+    </div>
+
+    <div class="row box">
+        <div class="col col-3" style="background:cyan;border-radius:10px;">
+            <label ><b>Job Location:</b></label>
+        </div>
+        <div class="col col-1"></div>
+        <div class="col col-8">
+            <label class="box2">{{data.location}}</label>
+        </div>
+    </div>
+        <div class="row box">
+        <div class="col col-3" style="background:cyan;border-radius:10px;">
+            <label ><b>Skill Required:</b></label>
+        </div>
+        <div class="col col-1"></div>
+        <div class="col col-8">
+            <label class="box2">{{data.skills}}</label>
+        </div>
+    </div>
+    <div class="row box">
+        <div class="col col-3" style="background:cyan;border-radius:10px;">
+            <label ><b>Description:</b></label>
+        </div>
+        <div class="col col-1"></div>
+        <div class="col col-8">
+            <label class="box2">{{data.description}}</label>
+        </div>
+    </div>
+        <div class="row box">
+        <div class="col col-3" >
+            <h2 style="margin-top:20px;">Company Logo:</h2>
+        </div>
+        <div class="col col-1"></div>
+        <div class="col col-8">
+            <img src="{{data.image.url}}" height="100" width="300" style="border-radius:20px;">
+        </div>
+    </div>
+
+    {% if message %}
+    <div class="alert alert-warning mt-3"><strong>{{ message }}</strong></div>
+    {% endif %}
+
+    <center>
+        {% if eligible %}
+            {% if data.id in applied_job_ids %}
+                {% for app in applied_jobs_list %}
+                    {% if app.id == data.id %}
+                        <button class="btn btn-outline-secondary detail-action-btn" disabled aria-disabled="true" style="margin-right:10px;">Applied on {{ app.label }}</button>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <a href="{% url 'apply_now' data.id %}" class="btn btn-success detail-action-btn" style="margin-right:10px;">Apply Now</a>
+            {% endif %}
+        {% endif %}
+        <a href="{% url 'user_home' %}" class="btn btn-dark detail-action-btn">Close</a>
+    </center>
+
+</form>
+
+{% include 'footer.html' %}

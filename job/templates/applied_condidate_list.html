@@ -1,0 +1,146 @@
+{% include 'recuiter_navigation.html' %}
+
+<marquee style="font-family: 'Monotype Corsiva'; font-size:25px; color:darkcyan; background-color:black; font-weight:bold; margin-top:1%">
+        Applied Candidates
+</marquee>
+<hr>
+
+<div class="container-fluid py-3">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h4 class="mb-0">Applied Candidates</h4>
+        </div>
+        <span class="badge badge-info px-3 py-2">{{ data|length }} applicants</span>
+    </div>
+
+    <form method="get" class="card card-body mb-3 shadow-sm">
+        <div class="form-row align-items-end">
+            <div class="form-group col-md-6">
+                <label>Search</label>
+                <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Name, email, phone...">
+            </div>
+            <div class="form-group col-md-4">
+                <label>Status</label>
+                <select name="status_filter" class="form-control">
+                    <option value="">All statuses</option>
+                    <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                    <option value="Shortlisted" {% if status_filter == 'Shortlisted' %}selected{% endif %}>Shortlisted</option>
+                    <option value="Accepted" {% if status_filter == 'Accepted' %}selected{% endif %}>Accepted</option>
+                    <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
+                </select>
+            </div>
+            <div class="form-group col-md-2 d-flex">
+                <button type="submit" class="btn btn-primary btn-block w-100">Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-hover shadow-sm rounded overflow-hidden" id="example">
+            <thead>
+            <tr style="background-color: #dff7e1; color: #0b2e13;">
+                <th>Full Name</th>
+                <th>Contact</th>
+                <th>Email</th>
+                <th>Experience</th>
+                <th>Qualification</th>
+                <th>Profile</th>
+                <th>Status</th>
+                <th>Last Changed</th>
+                <th>Changed By</th>
+                <th>Action</th>
+            </tr>
+            </thead>
+            <tbody style="background-color: #fffef7; color: #1f1f1f;">
+            {% for i in data %}
+            <tr>
+                <td><strong>{{ i.fname }} {{ i.lname }}</strong></td>
+                <td>{{ i.mobile|default:'-' }}</td>
+                <td>{{ i.email|default:'-' }}</td>
+                <td>{{ i.experience|default:'0' }} Year</td>
+                <td>{{ i.qualification|default:'-' }}</td>
+                <td>
+                    {% if i.image %}
+                        <img src="{{ i.image.url }}" height="80" width="80" style="border-radius:20px; object-fit:cover; border:2px solid #dfe7ef;">
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if i.status == 'Accepted' %}
+                        <span class="badge badge-success px-2 py-1">Accepted</span>
+                    {% elif i.status == 'Rejected' %}
+                        <span class="badge badge-danger px-2 py-1">Rejected</span>
+                    {% elif i.status == 'Shortlisted' %}
+                        <span class="badge badge-primary px-2 py-1">Shortlisted</span>
+                    {% else %}
+                        <span class="badge badge-warning text-dark px-2 py-1">Pending</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if i.status_changed_at %}
+                        {{ i.status_changed_at|date:"d M Y H:i" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if i.status_changed_by %}
+                        {{ i.status_changed_by.first_name }} {{ i.status_changed_by.last_name }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="d-flex flex-column">
+                        <a href="{% url 'candidate_detail' i.id %}" class="btn btn-primary btn-sm mb-2">View Candidate</a>
+
+                        <div class="d-flex mb-2 flex-wrap">
+                            {% if i.status == 'Accepted' %}
+                                <button class="btn btn-success btn-sm" disabled aria-disabled="true">Accepted</button>
+                            {% else %}
+                                <form method="post" action="{% url 'change_application_status' i.id %}" style="display:inline-block;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="accept">
+                                    <button type="submit" class="btn btn-success btn-sm">Accept</button>
+                                </form>
+                            {% endif %}
+                            {% if i.status == 'Accepted' %}
+                                <button class="btn btn-primary btn-sm" disabled aria-disabled="true">Shortlist</button>
+                                <button class="btn btn-danger btn-sm" disabled aria-disabled="true" style="margin-left:6px;">Reject</button>
+                            {% else %}
+                                <form method="post" action="{% url 'change_application_status' i.id %}" style="display:inline-block; margin-left:6px;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="shortlist">
+                                    <button type="submit" class="btn btn-primary btn-sm">Shortlist</button>
+                                </form>
+                                <form method="post" action="{% url 'change_application_status' i.id %}" style="display:inline-block; margin-left:6px;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="reject">
+                                    <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                                </form>
+                            {% endif %}
+                        </div>
+
+                        {% if i.status == 'Accepted' %}
+                            <a href="{% url 'download_joining_letter' i.id %}" class="btn btn-outline-success btn-sm mb-2">Interview Invite</a>
+                        {% endif %}
+
+                        {% if i.get_resume %}
+                            <a href="{% url 'download_resume' i.id %}" class="btn btn-secondary btn-sm mb-2">Download Resume</a>
+                        {% else %}
+                            <span class="text-muted small mt-1 mb-2">No resume</span>
+                        {% endif %}
+
+                        <a href="{% url 'application_history' i.id %}" class="btn btn-info btn-sm mb-2">History</a>
+                        <a href="{% url 'delete_condidate' i.id %}" class="btn btn-danger btn-sm">Delete</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include 'footer.html' %}

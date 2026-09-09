@@ -1,0 +1,170 @@
+<html>
+<head>
+    {% load static %}
+    <title>Job Portal</title>
+    <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+body {
+    background-color: #f5f7fb;
+}
+.nav-link{
+    color:white !important;
+    margin-right: 4px;
+    padding: 10px 14px !important;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover{
+    color:#fff !important;
+    font-weight: 600;
+    background: rgba(255,255,255,0.18);
+    border-radius:10px;
+}
+
+.navbar-brand:hover{
+    color:#fff !important;
+}
+
+.back-arrow-btn {
+    position: fixed;
+    left: 18px;
+    top: 18px;
+    z-index: 9999;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0d6efd, #0056b3);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    text-decoration: none;
+}
+
+.back-arrow-btn:hover {
+    color: white;
+    text-decoration: none;
+    transform: scale(1.05);
+}
+
+.main-header {
+    background: linear-gradient(180deg, #f9fbff 0%, #edf4ff 100%);
+    padding: 18px 0 12px;
+    border-bottom: 1px solid #e4ebf8;
+}
+
+.site-title {
+    font-weight: 800;
+    font-size: 30px;
+    letter-spacing: 0.5px;
+}
+
+.site-title .red { color: #e53935; }
+.site-title .green { color: #198754; }
+
+.top-social {
+    color: #0d6efd;
+    font-size: 24px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.navbar-custom {
+    background: linear-gradient(90deg, #0d6efd, #1d4ed8);
+    box-shadow: 0 8px 20px rgba(13,110,253,0.12);
+}
+</style>
+<script>
+    function goBackSafe() {
+        var currentPath = window.location.pathname || '/';
+        var isHomePage = currentPath === '/' || currentPath.endsWith('/home') || currentPath.endsWith('/index') || currentPath.endsWith('/');
+        if (isHomePage) {
+            return;
+        }
+        var referrer = document.referrer || '';
+        var sameSite = referrer && referrer.indexOf(window.location.origin) === 0;
+        var referrerPath = '';
+        try {
+            referrerPath = sameSite ? new URL(referrer).pathname : '';
+        } catch (e) {
+            referrerPath = '';
+        }
+        var blocked = ['/verify_otp', '/forgot_password', '/reset_password'].indexOf(referrerPath) !== -1;
+        if (sameSite && !blocked && history.length > 1) {
+            history.back();
+            return;
+        }
+        window.location.href = '{% url "user_home" %}';
+    }
+</script>
+</head>
+<body>
+<a href="javascript:void(0)" class="back-arrow-btn" onclick="goBackSafe(); return false;" title="Back">
+    <i class="fa fa-arrow-left"></i>
+</a>
+
+<div class="container main-header">
+    <div class="row align-items-center">
+        <div class="col-sm-3" style="display:flex; align-items:center; justify-content:flex-start; gap:12px;">
+            <img src="{% static 'images/college_logo.png' %}" width="120px" height="120px" style="object-fit:contain; background:transparent; border-radius:50%; box-shadow:0 0 15px rgba(0,0,0,0.08);">
+            <img src="{% static 'images/job_portal_logo.png' %}" width="120px" height="120px" style="object-fit:contain; border-radius:18px; box-shadow:0 0 12px rgba(0,0,0,0.12); background:transparent;">
+        </div>
+
+        <div class="col-sm-6 text-center">
+            <span class="site-title">
+                <span class="red">Online Job</span>
+                <span class="green">Portal System</span>
+            </span>
+        </div>
+
+        <div class="col-sm-3 text-center">
+            <div class="top-social">
+                <span><i class="fa fa-twitter"></i></span>
+                <span><i class="fa fa-linkedin"></i></span>
+                <span><i class="fa fa-instagram"></i></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<nav class="navbar navbar-expand-sm navbar-custom">
+    <a class="navbar-brand text-white pl-5 font-weight-bold" style="font-family:'Mv Boli'; font-size:30px">Job Portal</a>
+
+    <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="{% url 'user_home' %}" style="margin-left:180px"><i class="fa fa-home mr-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'user_home' %}#recommended-jobs"><i class="fa fa-lightbulb-o mr-1"></i>Recommended</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'view_job_user' %}"><i class="fa fa-users mr-1"></i>Job List</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'my_applied_jobs' %}"><i class="fa fa-briefcase mr-1"></i>Applied Jobs</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'user_profile' %}"><i class="fa fa-user-circle mr-1"></i>Profile</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'change_passworduser' %}"><i class="fa fa-lock mr-1"></i>Change Password</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'logout' %}"><i class="fa fa-sign-out mr-1"></i>Logout</a></li>
+    </ul>
+
+    <a class="navbar-brand text-white pl-5 font-weight-bold" style="font-family:'Mv Boli'; font-size:18px" href="{% url 'user_profile' %}">
+        {% if request.user.is_authenticated %}
+            {% with student=request.user.studentuser_set.first %}
+                {% if student and student.image %}
+                    <img src="{{ student.image.url }}" alt="Profile" style="width:34px; height:34px; border-radius:50%; object-fit:cover; margin-right:8px; border:2px solid rgba(255,255,255,0.8);">
+                {% else %}
+                    <span class="fa fa-user-circle" style="font-size:26px; margin-right:8px;"></span>
+                {% endif %}
+            {% endwith %}
+        {% endif %}
+        {{request.user.first_name}} {{request.user.last_name}}
+    </a>
+</nav>
+
+</body>
+</html>

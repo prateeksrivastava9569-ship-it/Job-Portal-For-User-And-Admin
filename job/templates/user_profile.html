@@ -1,0 +1,210 @@
+{% load static %}
+{% block body %}
+{% include 'user_navigation.html' %}
+
+<style>
+    .profile-shell {
+        margin-top: 40px;
+        margin-bottom: 40px;
+    }
+    .profile-card {
+        background: linear-gradient(135deg, #ffffff, #eef5ff);
+        border: 1px solid #dfe9ff;
+        border-radius: 20px;
+        box-shadow: 0 12px 28px rgba(13, 110, 253, 0.10);
+        padding: 24px;
+    }
+    .profile-avatar {
+        width: 160px;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid #dfe9ff;
+        background: #f2f6ff;
+    }
+    .profile-detail {
+        border-bottom: 1px solid #edf1f7;
+        padding: 8px 0;
+    }
+    .profile-detail:last-child {
+        border-bottom: none;
+    }
+    .edit-form {
+        display: none;
+    }
+    .edit-form.show {
+        display: block;
+    }
+    .pencil-btn {
+        border: none;
+        border-radius: 50%;
+        width: 42px;
+        height: 42px;
+        background: #0d6efd;
+        color: #fff;
+        box-shadow: 0 6px 16px rgba(13, 110, 253, 0.25);
+    }
+    .small-note {
+        color: #666;
+        font-size: 0.85rem;
+    }
+</style>
+
+<div class="container profile-shell">
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="profile-card text-center">
+                {% if student.image %}
+                    <img src="{{ student.image.url }}" alt="Profile image" class="profile-avatar">
+                {% else %}
+                    <div class="profile-avatar d-flex align-items-center justify-content-center text-muted" style="font-size:56px; background:#f4f6fb;"> <i class="fa fa-user"></i> </div>
+                {% endif %}
+                <h3 class="mt-3 mb-1">{{ request.user.first_name }} {{ request.user.last_name }}</h3>
+                <p class="text-muted mb-3">{{ request.user.email|default:request.user.username }}</p>
+                <button type="button" class="pencil-btn" id="toggleEditBtn" title="Edit profile">
+                    <i class="fa fa-pencil"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="profile-card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0"><i class="fa fa-id-card-o mr-2"></i>Profile Details</h4>
+                    <span class="badge badge-primary px-3 py-2">User</span>
+                </div>
+
+                <div class="profile-detail"><strong>Mobile:</strong> {{ student.mobile|default:'Not added' }}</div>
+                <div class="profile-detail"><strong>Gender:</strong> {{ student.gender|default:'Not added' }}</div>
+                <div class="profile-detail"><strong>Qualification:</strong> {{ student.qualification|default:'Not added' }}</div>
+                <div class="profile-detail"><strong>Experience:</strong> {{ student.experience|default:'Not added' }}</div>
+                <div class="profile-detail"><strong>Interests:</strong> {{ student.interest|default:'Not added' }}</div>
+                <div class="profile-detail">
+                    <strong>Resume:</strong>
+                    {% if student.resume %}
+                        <a href="{{ student.resume.url }}" target="_blank" class="ml-2 btn btn-sm btn-outline-primary">View Resume</a>
+                    {% else %}
+                        <span class="text-muted ml-2">No resume uploaded</span>
+                    {% endif %}
+                </div>
+
+                <div class="edit-form mt-4 {% if error %}show{% endif %}" id="editForm">
+                    <h5 class="mb-3"><i class="fa fa-pencil-square-o mr-2"></i>Edit Profile</h5>
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label>First Name</label>
+                                <input type="text" class="form-control" name="fname" value="{{ request.user.first_name }}" required>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label>Last Name</label>
+                                <input type="text" class="form-control" name="lname" value="{{ request.user.last_name }}">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label>Mobile</label>
+                                <input type="tel" class="form-control" name="contact" value="{{ student.mobile|default:'' }}" required>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label>Gender</label>
+                                <select class="form-control" name="gender" required>
+                                    <option value="">Select</option>
+                                    <option value="Male" {% if student.gender == 'Male' %}selected{% endif %}>Male</option>
+                                    <option value="Female" {% if student.gender == 'Female' %}selected{% endif %}>Female</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label>Qualification</label>
+                                <select class="form-control" name="qualification" required>
+                                    <option value="">Select qualification</option>
+                                    <option value="B.Tech Computer Science" {% if student.qualification == 'B.Tech Computer Science' %}selected{% endif %}>B.Tech Computer Science</option>
+                                    <option value="B.Tech Information Technology" {% if student.qualification == 'B.Tech Information Technology' %}selected{% endif %}>B.Tech Information Technology</option>
+                                    <option value="B.Tech Electronics & Communication" {% if student.qualification == 'B.Tech Electronics & Communication' %}selected{% endif %}>B.Tech Electronics & Communication</option>
+                                    <option value="B.Tech Mechanical" {% if student.qualification == 'B.Tech Mechanical' %}selected{% endif %}>B.Tech Mechanical</option>
+                                    <option value="B.Tech Civil" {% if student.qualification == 'B.Tech Civil' %}selected{% endif %}>B.Tech Civil</option>
+                                    <option value="BCA" {% if student.qualification == 'BCA' %}selected{% endif %}>BCA</option>
+                                    <option value="MCA" {% if student.qualification == 'MCA' %}selected{% endif %}>MCA</option>
+                                    <option value="Diploma in Engineering" {% if student.qualification == 'Diploma in Engineering' %}selected{% endif %}>Diploma in Engineering</option>
+                                    <option value="B.Sc Computer Science" {% if student.qualification == 'B.Sc Computer Science' %}selected{% endif %}>B.Sc Computer Science</option>
+                                    <option value="B.Sc IT" {% if student.qualification == 'B.Sc IT' %}selected{% endif %}>B.Sc IT</option>
+                                    <option value="M.Tech" {% if student.qualification == 'M.Tech' %}selected{% endif %}>M.Tech</option>
+                                    <option value="Other" {% if student.qualification == 'Other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label>Experience (Years)</label>
+                                <input type="number" class="form-control" name="experience" min="0" value="{{ student.experience|default:'0' }}" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Interests</label>
+                            <div class="border rounded p-3" style="background:#f9fbff;">
+                                <div class="row">
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Web Development" {% if 'Web Development' in selected_interests %}checked{% endif %}> Web Development</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Software Development" {% if 'Software Development' in selected_interests %}checked{% endif %}> Software Development</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Data Science" {% if 'Data Science' in selected_interests %}checked{% endif %}> Data Science</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Artificial Intelligence" {% if 'Artificial Intelligence' in selected_interests %}checked{% endif %}> Artificial Intelligence</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Machine Learning" {% if 'Machine Learning' in selected_interests %}checked{% endif %}> Machine Learning</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Cyber Security" {% if 'Cyber Security' in selected_interests %}checked{% endif %}> Cyber Security</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Cloud Computing" {% if 'Cloud Computing' in selected_interests %}checked{% endif %}> Cloud Computing</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Python" {% if 'Python' in selected_interests %}checked{% endif %}> Python</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Java" {% if 'Java' in selected_interests %}checked{% endif %}> Java</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Android Development" {% if 'Android Development' in selected_interests %}checked{% endif %}> Android Development</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="UI/UX Design" {% if 'UI/UX Design' in selected_interests %}checked{% endif %}> UI/UX Design</label></div>
+                                    <div class="col-md-4 mb-2"><label class="d-block"><input type="checkbox" name="interest" value="Testing" {% if 'Testing' in selected_interests %}checked{% endif %}> Testing</label></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label>Profile Image</label>
+                                <input type="file" class="form-control" name="image" accept="image/*">
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label>Resume</label>
+                                <input type="file" class="form-control" name="resume" accept=".pdf,.doc,.docx">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success"><i class="fa fa-save mr-2"></i>Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('toggleEditBtn')?.addEventListener('click', function () {
+        var form = document.getElementById('editForm');
+        if (form) {
+            form.classList.toggle('show');
+        }
+    });
+</script>
+
+{% include 'footer.html' %}
+{% if error == 'no' %}
+<script>
+    alert('Profile updated successfully.');
+</script>
+{% endif %}
+{% if error == 'mobile' %}
+<script>
+    alert('Please enter a valid 10-digit mobile number.');
+</script>
+{% endif %}
+{% if error == 'required' %}
+<script>
+    alert('Please fill all required profile fields.');
+</script>
+{% endif %}
+{% endblock %}
